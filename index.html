@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🌦️ मौसम टाइमर – भारत का स्थानीय संस्करण</title>
+    <title>🌦️ मौसम टाइमर – पूर्ण आपदा चेतावनी</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         * {
             box-sizing: border-box;
@@ -23,7 +24,7 @@
         }
         .top-bar {
             display: flex;
-            gap: 6px;
+            gap: 5px;
             align-items: center;
             background: rgba(255, 255, 255, 0.07);
             backdrop-filter: blur(8px);
@@ -41,7 +42,7 @@
             color: #fff;
             font-size: 0.9rem;
             outline: none;
-            min-width: 80px;
+            min-width: 70px;
         }
         .top-bar input::placeholder {
             color: rgba(255, 255, 255, 0.35);
@@ -50,9 +51,9 @@
             background: rgba(255, 255, 255, 0.1);
             border: none;
             color: #fff;
-            padding: 6px 12px;
+            padding: 5px 10px;
             border-radius: 30px;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             cursor: pointer;
             transition: 0.2s;
             white-space: nowrap;
@@ -105,17 +106,21 @@
             font-size: 0.65rem;
             display: block;
         }
-        .map-container {
+        #interactiveMap {
+            height: 220px;
             border-radius: 16px;
-            overflow: hidden;
-            margin-bottom: 14px;
-            height: 160px;
+            margin-bottom: 12px;
             border: 1px solid rgba(255, 255, 255, 0.04);
+            z-index: 1;
         }
-        .map-container iframe {
-            width: 100%;
-            height: 100%;
-            border: 0;
+        .leaflet-control-attribution {
+            font-size: 8px !important;
+            background: rgba(0, 0, 0, 0.5) !important;
+            color: #aaa !important;
+        }
+        .leaflet-popup-content {
+            color: #000;
+            font-size: 12px;
         }
         .card-grid {
             display: flex;
@@ -257,6 +262,44 @@
         .rain-alert.active {
             display: block;
         }
+        .critical-alert {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 14px;
+            padding: 12px 16px;
+            margin-bottom: 12px;
+            display: none;
+            text-align: center;
+            font-weight: 600;
+            color: #fca5a5;
+            font-size: 0.95rem;
+        }
+        .critical-alert.active {
+            display: block;
+        }
+        .alert-container {
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 16px;
+            padding: 12px 16px;
+            margin-bottom: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .alert-container .alert-title {
+            font-weight: 500;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+        .alert-item {
+            font-size: 0.75rem;
+            padding: 4px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            opacity: 0.85;
+        }
+        .alert-item:last-child {
+            border-bottom: none;
+        }
         .prob-badge {
             font-size: 0.65rem;
             padding: 2px 10px;
@@ -322,19 +365,21 @@
             margin-top: 2px;
         }
         .search-results {
-            background: rgba(0, 0, 0, 0.6);
+            background: rgba(0, 0, 0, 0.7);
             border-radius: 12px;
             margin-top: 4px;
-            max-height: 200px;
+            max-height: 180px;
             overflow-y: auto;
             display: none;
             border: 1px solid rgba(255, 255, 255, 0.05);
+            z-index: 1000;
+            position: relative;
         }
         .search-results .result-item {
             padding: 8px 14px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
             cursor: pointer;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             transition: 0.2s;
         }
         .search-results .result-item:last-child {
@@ -361,7 +406,7 @@
             color: #fff;
             font-size: 0.8rem;
             outline: none;
-            width: 80px;
+            width: 75px;
         }
         .manual-coords input::placeholder {
             color: rgba(255, 255, 255, 0.3);
@@ -374,6 +419,23 @@
             border-radius: 30px;
             font-size: 0.7rem;
             cursor: pointer;
+        }
+        .save-pin-btn {
+            margin: 8px auto 12px;
+            display: none;
+            background: rgba(34, 197, 94, 0.2);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            width: 100%;
+            text-align: center;
+        }
+        .save-pin-btn:active {
+            transform: scale(0.97);
+            background: rgba(34, 197, 94, 0.3);
         }
         @media (max-width: 420px) {
             .card-value {
@@ -400,8 +462,11 @@
                 font-size: 0.85rem;
             }
             .manual-coords input {
-                width: 60px;
+                width: 55px;
                 font-size: 0.7rem;
+            }
+            #interactiveMap {
+                height: 180px;
             }
         }
     </style>
@@ -412,8 +477,8 @@
         <div class="top-bar">
             <input type="text" id="searchInput" placeholder="🔍 गाँव/शहर/ज़िला खोजें..." />
             <button id="searchBtn">खोज</button>
-            <button class="refresh-btn" id="refreshBtn">🔄 ताज़ा</button>
-            <button class="home-btn" id="homeBtn">🏠 घर</button>
+            <button class="refresh-btn" id="refreshBtn">🔄</button>
+            <button class="home-btn" id="homeBtn">🏠</button>
         </div>
 
         <!-- Search Results Dropdown -->
@@ -425,24 +490,33 @@
             <input type="text" id="latInput" placeholder="अक्षांश" />
             <input type="text" id="lonInput" placeholder="देशांतर" />
             <button id="manualGoBtn">जाएं</button>
-            <span style="font-size:0.55rem;opacity:0.3;margin-left:auto;">(नक्शे से कॉपी करें)</span>
+            <span style="font-size:0.55rem;opacity:0.3;margin-left:auto;">(नक्शे से कॉपी)</span>
         </div>
 
         <!-- Saved Places -->
         <div class="saved-chips" id="savedChips"></div>
 
-        <!-- Location & Map -->
+        <!-- Location -->
         <div class="location-badge" id="locationDisplay">📍 स्थान प्राप्त कर रहा है...</div>
 
+        <!-- Interactive Map -->
+        <div id="interactiveMap"></div>
+
+        <!-- Save Pin Button -->
+        <button class="save-pin-btn" id="savePinBtn">📍 इस स्थान को सहेजें</button>
+
         <!-- Alerts -->
+        <div class="critical-alert" id="criticalAlert">⚠️ गंभीर चेतावनी!</div>
         <div class="storm-alert" id="stormAlert">⚡ तूफ़ान की संभावना! हवा का दबाव तेज़ी से गिर रहा है।</div>
         <div class="rain-alert" id="rainAlert">🌧️ अगले 1 घंटे में बारिश की संभावना! तैयार रहें।</div>
 
-        <div class="map-container" id="mapContainer">
-            <iframe id="mapIframe" src="https://www.openstreetmap.org/export/embed.html?bbox=76.0,27.0,78.0,30.0&layer=mapnik&marker=28.6139,77.2090" loading="lazy"></iframe>
+        <!-- Alert Container -->
+        <div class="alert-container" id="alertContainer">
+            <div class="alert-title">🌍 आपदा चेतावनियाँ</div>
+            <div style="opacity:0.5;font-size:0.8rem;">लोड हो रहा है...</div>
         </div>
 
-        <!-- Content Cards -->
+        <!-- Weather Cards -->
         <div id="content">
             <div class="loading">⏳ डेटा लोड हो रहा है...</div>
         </div>
@@ -468,8 +542,12 @@
             </div>
         </div>
 
-        <div class="footer">🔁 हर 15 मिनट में अपडेट · Open-Meteo + Nominatim · v3.0 (स्थानीय)</div>
+        <div class="footer">🔁 हर 15 मिनट में अपडेट · Open-Meteo + USGS + GDACS · v4.0 (पूर्ण)</div>
     </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+    </script>
 
     <script>
         // ============================================================
@@ -483,13 +561,15 @@
         let isHomeMode = true;
         let lastPressure = null;
         let pressureDropStart = null;
+        let map = null;
+        let marker = null;
+        let isMapInitialized = false;
 
         // ============================================================
         //  2. DOM REFS
         // ============================================================
         const content = document.getElementById('content');
         const locationDisplay = document.getElementById('locationDisplay');
-        const mapIframe = document.getElementById('mapIframe');
         const searchInput = document.getElementById('searchInput');
         const searchBtn = document.getElementById('searchBtn');
         const homeBtn = document.getElementById('homeBtn');
@@ -497,10 +577,13 @@
         const savedChips = document.getElementById('savedChips');
         const stormAlert = document.getElementById('stormAlert');
         const rainAlert = document.getElementById('rainAlert');
+        const criticalAlert = document.getElementById('criticalAlert');
+        const alertContainer = document.getElementById('alertContainer');
         const searchResults = document.getElementById('searchResults');
         const latInput = document.getElementById('latInput');
         const lonInput = document.getElementById('lonInput');
         const manualGoBtn = document.getElementById('manualGoBtn');
+        const savePinBtn = document.getElementById('savePinBtn');
 
         // ============================================================
         //  3. HELPERS
@@ -547,6 +630,17 @@
             return 60;
         }
 
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
         // ============================================================
         //  4. SAVED PLACES (localStorage)
         // ============================================================
@@ -583,13 +677,85 @@
                 chip.onclick = () => {
                     loadData(p.lat, p.lon, p.name);
                     isHomeMode = false;
+                    updateMap(p.lat, p.lon);
                 };
                 savedChips.appendChild(chip);
             });
         }
 
         // ============================================================
-        //  5. FETCHING DATA
+        //  5. MAP FUNCTIONS
+        // ============================================================
+        function initMap(lat, lon) {
+            if (isMapInitialized && map) {
+                map.setView([lat, lon], 13);
+                marker.setLatLng([lat, lon]);
+                return;
+            }
+
+            map = L.map('interactiveMap').setView([lat, lon], 13);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap',
+                maxZoom: 19
+            }).addTo(map);
+
+            const pinIcon = L.divIcon({
+                className: 'custom-pin',
+                html: '📍',
+                iconSize: [30, 30],
+                iconAnchor: [15, 30]
+            });
+
+            marker = L.marker([lat, lon], { draggable: true, icon: pinIcon }).addTo(map);
+
+            marker.on('dragend', function(e) {
+                const pos = marker.getLatLng();
+                const newLat = pos.lat.toFixed(6);
+                const newLon = pos.lng.toFixed(6);
+                loadData(parseFloat(newLat), parseFloat(newLon), `पिन (${newLat}, ${newLon})`);
+                isHomeMode = false;
+                savePinBtn.style.display = 'block';
+                savePinBtn.onclick = () => {
+                    const name = prompt('इस स्थान का नाम दर्ज करें:', 'मेरा स्थान');
+                    if (name) {
+                        savePlace(name, parseFloat(newLat), parseFloat(newLon));
+                        savePinBtn.style.display = 'none';
+                    }
+                };
+            });
+
+            map.on('click', function(e) {
+                const newLat = e.latlng.lat.toFixed(6);
+                const newLon = e.latlng.lng.toFixed(6);
+                marker.setLatLng([newLat, newLon]);
+                loadData(parseFloat(newLat), parseFloat(newLon), `पिन (${newLat}, ${newLon})`);
+                isHomeMode = false;
+                savePinBtn.style.display = 'block';
+                savePinBtn.onclick = () => {
+                    const name = prompt('इस स्थान का नाम दर्ज करें:', 'मेरा स्थान');
+                    if (name) {
+                        savePlace(name, parseFloat(newLat), parseFloat(newLon));
+                        savePinBtn.style.display = 'none';
+                    }
+                };
+            });
+
+            isMapInitialized = true;
+            setTimeout(() => { map.invalidateSize(); }, 500);
+        }
+
+        function updateMap(lat, lon) {
+            if (map && marker) {
+                map.setView([lat, lon], 13);
+                marker.setLatLng([lat, lon]);
+            } else {
+                initMap(lat, lon);
+            }
+        }
+
+        // ============================================================
+        //  6. FETCHING DATA
         // ============================================================
         async function fetchWeather(lat, lon) {
             const base = 'https://api.open-meteo.com/v1/forecast';
@@ -619,7 +785,7 @@
         }
 
         // ============================================================
-        //  6. GEOCODING WITH NOMINATIM (supports villages & districts)
+        //  7. GEOCODING
         // ============================================================
         async function geocodeNominatim(query) {
             const url =
@@ -628,14 +794,13 @@
             if (!res.ok) throw new Error('खोज विफल');
             const data = await res.json();
             if (!data || data.length === 0) {
-                // Fallback: try with broader search (remove country filter)
                 const fallbackUrl =
                     `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=10&accept-language=hi`;
                 const fallbackRes = await fetch(fallbackUrl);
                 if (!fallbackRes.ok) throw new Error('खोज विफल');
                 const fallbackData = await fallbackRes.json();
                 if (!fallbackData || fallbackData.length === 0) {
-                    throw new Error('कोई स्थान नहीं मिला, कृपया मैन्युअल अक्षांश/देशांतर डालें');
+                    throw new Error('कोई स्थान नहीं मिला, मैन्युअल निर्देशांक डालें');
                 }
                 return fallbackData;
             }
@@ -658,20 +823,129 @@
         }
 
         // ============================================================
-        //  7. BAROMETER / STORM DETECTION
+        //  8. ALERTS (USGS Earthquakes + GDACS)
+        // ============================================================
+        async function fetchEarthquakeAlerts(lat, lon, radiusKm = 500) {
+            const url =
+                `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&latitude=${lat}&longitude=${lon}&maxradiuskm=${radiusKm}&minmagnitude=2.5&orderby=time`;
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                return data.features || [];
+            } catch (error) {
+                console.error('Earthquake API error:', error);
+                return [];
+            }
+        }
+
+        async function fetchGDACSAlerts(lat, lon, radiusKm = 500) {
+            const url = `https://www.gdacs.org/xml/rss.xml`;
+            try {
+                const response = await fetch(url);
+                const text = await response.text();
+                const parser = new DOMParser();
+                const xml = parser.parseFromString(text, "text/xml");
+                const items = xml.querySelectorAll('item');
+                let alerts = [];
+                items.forEach(item => {
+                    const title = item.querySelector('title')?.textContent || '';
+                    const description = item.querySelector('description')?.textContent || '';
+                    const latNode = item.querySelector('geo\\:lat, lat');
+                    const lonNode = item.querySelector('geo\\:long, long');
+                    if (latNode && lonNode) {
+                        const alertLat = parseFloat(latNode.textContent);
+                        const alertLon = parseFloat(lonNode.textContent);
+                        if (!isNaN(alertLat) && !isNaN(alertLon)) {
+                            const distance = getDistance(lat, lon, alertLat, alertLon);
+                            if (distance <= radiusKm) {
+                                let type = '⚠️ आपदा';
+                                if (title.toLowerCase().includes('flood')) type = '🌊 बाढ़';
+                                else if (title.toLowerCase().includes('cyclone')) type = '🌀 चक्रवात';
+                                else if (title.toLowerCase().includes('volcano')) type = '🌋 ज्वालामुखी';
+                                else if (title.toLowerCase().includes('drought')) type = '🏜️ सूखा';
+                                else if (title.toLowerCase().includes('wildfire') || title.toLowerCase().includes('fire'))
+                                    type = '🔥 जंगल की आग';
+                                alerts.push({ title, description, type, lat: alertLat, lon: alertLon,
+                                distance });
+                            }
+                        }
+                    }
+                });
+                return alerts;
+            } catch (error) {
+                console.error('GDACS API error:', error);
+                return [];
+            }
+        }
+
+        async function checkAllAlerts(lat, lon) {
+            try {
+                const [earthquakes, gdacsAlerts] = await Promise.all([
+                    fetchEarthquakeAlerts(lat, lon),
+                    fetchGDACSAlerts(lat, lon)
+                ]);
+
+                let alertHTML = '';
+                let criticalMsg = '';
+                let hasCritical = false;
+
+                // Earthquakes
+                earthquakes.slice(0, 5).forEach(eq => {
+                    const mag = eq.properties.mag || 0;
+                    const place = eq.properties.place || 'अज्ञात';
+                    const time = new Date(eq.properties.time).toLocaleString('hi-IN');
+                    if (mag >= 4.0) {
+                        hasCritical = true;
+                        criticalMsg = `⚠️ भूकंप! तीव्रता ${mag} · ${place}`;
+                    }
+                    alertHTML += `<div class="alert-item">🌍 भूकंप: तीव्रता ${mag} · ${place} (${time})</div>`;
+                });
+
+                // GDACS
+                gdacsAlerts.slice(0, 5).forEach(alert => {
+                    const distText = Math.round(alert.distance);
+                    if (alert.title.toLowerCase().includes('red')) {
+                        hasCritical = true;
+                        criticalMsg = `🔴 ${alert.type} चेतावनी! ${alert.title}`;
+                    }
+                    alertHTML +=
+                        `<div class="alert-item">${alert.type}: ${alert.title} (${distText} km दूर)</div>`;
+                });
+
+                if (!alertHTML) {
+                    alertHTML = '<div style="opacity:0.5;font-size:0.8rem;">✅ कोई सक्रिय आपदा चेतावनी नहीं</div>';
+                }
+
+                alertContainer.innerHTML = `<div class="alert-title">🌍 आपदा चेतावनियाँ</div>${alertHTML}`;
+
+                // Critical alert banner
+                if (hasCritical && criticalMsg) {
+                    criticalAlert.textContent = `🚨 ${criticalMsg}`;
+                    criticalAlert.classList.add('active');
+                } else {
+                    criticalAlert.classList.remove('active');
+                }
+
+            } catch (error) {
+                console.error('Alert check error:', error);
+                alertContainer.innerHTML =
+                    `<div class="alert-title">🌍 आपदा चेतावनियाँ</div><div style="opacity:0.5;font-size:0.8rem;">⚠️ चेतावनी डेटा लोड नहीं हो सका</div>`;
+            }
+        }
+
+        // ============================================================
+        //  9. BAROMETER / STORM DETECTION
         // ============================================================
         function checkPressureDrop(pressure) {
             if (!pressure || pressure <= 0) return;
-
             if (lastPressure !== null) {
                 const drop = lastPressure - pressure;
                 if (drop > 2.0) {
-                    if (!pressureDropStart) {
-                        pressureDropStart = Date.now();
-                    }
+                    if (!pressureDropStart) pressureDropStart = Date.now();
                     if (Date.now() - pressureDropStart > 5 * 60 * 1000) {
                         stormAlert.classList.add('active');
-                        stormAlert.textContent = `⚡ तूफ़ान की संभावना! दबाव ${drop.toFixed(1)} hPa गिरा (${lastPressure.toFixed(1)} → ${pressure.toFixed(1)})`;
+                        stormAlert.textContent =
+                            `⚡ तूफ़ान की संभावना! दबाव ${drop.toFixed(1)} hPa गिरा (${lastPressure.toFixed(1)} → ${pressure.toFixed(1)})`;
                     }
                 } else if (drop < -0.5) {
                     stormAlert.classList.remove('active');
@@ -690,21 +964,19 @@
             if ('PressureSensor' in window) {
                 try {
                     const sensor = new PressureSensor({ frequency: 60 });
-                    sensor.addEventListener('reading', () => {
-                        checkPressureDrop(sensor.pressure);
-                    });
+                    sensor.addEventListener('reading', () => { checkPressureDrop(sensor.pressure); });
                     sensor.start();
                     console.log('📱 बैरोमीटर सक्रिय');
                 } catch (e) {
                     console.log('📱 बैरोमीटर अनुपलब्ध:', e.message);
                 }
             } else {
-                console.log('📱 बैरोमीटर नहीं मिला (केवल कुछ फोन)');
+                console.log('📱 बैरोमीटर नहीं मिला');
             }
         }
 
         // ============================================================
-        //  8. LOAD & RENDER
+        //  10. LOAD DATA (Main Function)
         // ============================================================
         async function loadData(lat, lon, cityName) {
             currentLat = lat;
@@ -718,9 +990,10 @@
                 }
             }
             locationDisplay.innerHTML = `📍 ${currentCity} · <small>IST (UTC+5:30)</small>`;
-            const bbox = `${lon-0.2},${lat-0.2},${lon+0.2},${lat+0.2}`;
-            mapIframe.src =
-                `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lon}`;
+
+            // Update map
+            updateMap(lat, lon);
+            savePinBtn.style.display = 'none';
 
             content.innerHTML = '<div class="loading">⏳ डेटा लोड हो रहा है...</div>';
 
@@ -735,13 +1008,18 @@
                 renderUI(weather, aqi, lat, lon);
                 startCountdown();
                 renderSavedChips();
+
+                // Fetch alerts
+                checkAllAlerts(lat, lon);
+
             } catch (err) {
-                content.innerHTML = `<div class="error">❌ त्रुटि: ${err.message}<br><small>कृपया पुनः प्रयास करें या मैन्युअल निर्देशांक डालें</small></div>`;
+                content.innerHTML =
+                    `<div class="error">❌ त्रुटि: ${err.message}<br><small>कृपया पुनः प्रयास करें या मैन्युअल निर्देशांक डालें</small></div>`;
             }
         }
 
         // ============================================================
-        //  9. RENDER UI (Cards)
+        //  11. RENDER UI
         // ============================================================
         function renderUI(weather, aqi, lat, lon) {
             const now = new Date();
@@ -750,28 +1028,24 @@
             const hourly = weather.hourly;
             const currentExtra = weather.current || {};
 
-            // --- Temperature ---
             const temp = current.temperature || 0;
             const feels = currentExtra.apparent_temperature || temp;
             const tempFill = Math.min(100, Math.max(0, ((temp + 5) / 45) * 100));
             const tempColor = temp < 15 ? '#3b82f6' : temp < 25 ? '#22c55e' : temp < 35 ? '#facc15' : '#ef4444';
 
-            // --- Wind ---
             const windSpeed = current.wind_speed || 0;
             const windDir = current.wind_direction || 0;
             const windCardinal = getCardinal(windDir);
 
-            // --- AQI ---
             const pm25 = aqi?.current?.pm2_5 || 0;
             const pm10 = aqi?.current?.pm10 || 0;
             const aqiInfo = getAQILevel(pm25);
 
-            // --- Rain Timer & Duration ---
+            // Rain timer & duration
             let rainStartInfo = null;
             let rainEndInfo = null;
             let rainDuration = null;
             const threshold = 0.2;
-
             let firstIndex = -1;
             let lastIndex = -1;
             for (let i = 0; i < hourly.time.length; i++) {
@@ -785,18 +1059,11 @@
             if (firstIndex !== -1) {
                 const startTime = new Date(hourly.time[firstIndex]);
                 const endTime = new Date(hourly.time[lastIndex]);
-                rainStartInfo = {
-                    seconds: (startTime - now) / 1000,
-                    time: startTime,
-                    precip: hourly.precipitation[firstIndex]
-                };
-                rainEndInfo = {
-                    time: endTime,
-                    precip: hourly.precipitation[lastIndex]
-                };
+                rainStartInfo = { seconds: (startTime - now) / 1000, time: startTime, precip: hourly
+                        .precipitation[firstIndex] };
+                rainEndInfo = { time: endTime, precip: hourly.precipitation[lastIndex] };
                 rainDuration = (endTime - startTime) / 1000;
 
-                // Check if rain is within 1 hour -> show alert
                 if (rainStartInfo.seconds <= 3600 && rainStartInfo.seconds > 0) {
                     rainAlert.classList.add('active');
                     rainAlert.textContent = `🌧️ अगले ${Math.ceil(rainStartInfo.seconds/60)} मिनट में बारिश! तैयार रहें।`;
@@ -807,7 +1074,7 @@
                 rainAlert.classList.remove('active');
             }
 
-            // --- Sun Timer ---
+            // Sun timer
             function getSunTimer() {
                 const sunrise = new Date(daily.sunrise[0]);
                 const sunset = new Date(daily.sunset[0]);
@@ -822,7 +1089,7 @@
             }
             const sunTimer = getSunTimer();
 
-            // --- Moon Timer ---
+            // Moon timer
             function getMoonTimer() {
                 let candidates = [];
                 if (daily.moonrise && daily.moonrise[0]) {
@@ -843,15 +1110,12 @@
             }
             const moonTimer = getMoonTimer();
 
-            // --- Humidity & Cloud ---
             const humidity = currentExtra.relative_humidity_2m || 0;
             const clouds = currentExtra.cloud_cover || 0;
 
-            // --- Build Rain Display ---
             let rainDisplay = '☀️ 48h शुष्क';
             let rainSec = null;
             let rainProb = 0;
-
             if (rainStartInfo) {
                 rainSec = rainStartInfo.seconds;
                 rainProb = getProbability(rainSec);
@@ -861,104 +1125,96 @@
                 window._rainProb = rainProb;
             }
 
-            // --- Build HTML ---
             content.innerHTML = `
-                <!-- Temp Card -->
-                <div class="card" onclick="toggleDetail(this, 'temp-detail')">
-                    <div class="card-row">
-                        <span class="card-label"><span class="emoji">🌡️</span> तापमान</span>
-                        <span class="card-value" style="color:${tempColor};">${Math.round(temp)}°C <span class="sub">${Math.round(feels)}° feels</span></span>
-                    </div>
-                    <div class="temp-meter"><div class="temp-fill" style="width:${tempFill}%;"></div></div>
-                    <div class="detail-panel" id="temp-detail">🌡️ वास्तविक: ${temp}°C\n🌬️ महसूस: ${feels}°C\n💧 नमी: ${humidity}%</div>
-                </div>
-
-                <!-- AQI Card -->
-                <div class="card" onclick="toggleDetail(this, 'aqi-detail')">
-                    <div class="card-row">
-                        <span class="card-label"><span class="emoji">🧪</span> वायु गुणवत्ता</span>
-                        <span class="card-value"><span class="aqi-badge" style="background:${aqiInfo.color};color:#000;">${aqiInfo.label}</span> <span class="sub">PM2.5 ${Math.round(pm25)}</span></span>
-                    </div>
-                    <div class="card-sub-text">PM10: ${Math.round(pm10)} µg/m³</div>
-                    <div class="detail-panel" id="aqi-detail">🧪 AQI स्तर: ${aqiInfo.label}\nPM2.5: ${pm25.toFixed(1)} µg/m³\nPM10: ${pm10.toFixed(1)} µg/m³</div>
-                </div>
-
-                <!-- Wind Card -->
-                <div class="card" onclick="toggleDetail(this, 'wind-detail')">
-                    <div class="card-row">
-                        <span class="card-label"><span class="emoji">💨</span> हवा</span>
-                        <span class="card-value">${windSpeed.toFixed(1)} km/h <span class="sub">${windCardinal}</span></span>
-                    </div>
-                    <div class="card-sub-text">🧭 दिशा: ${windCardinal} (${Math.round(windDir)}°)</div>
-                    <div class="detail-panel" id="wind-detail">💨 गति: ${windSpeed.toFixed(1)} km/h\n🧭 दिशा: ${windCardinal} (${Math.round(windDir)}°)</div>
-                </div>
-
-                <!-- Rain Card (with Duration) -->
-                <div class="card" onclick="toggleDetail(this, 'rain-detail')">
-                    <div class="card-row">
-                        <span class="card-label"><span class="emoji">☔</span> वर्षा टाइमर</span>
-                        <span class="card-value">${rainStartInfo ? rainDisplay : '☀️ साफ़'}</span>
-                    </div>
-                    ${rainStartInfo ? `
-                        <div class="card-sub-text">
-                            🌧️ पहली बूंद: ${rainStartInfo.time.toLocaleString('hi-IN', { hour: '2-digit', minute: '2-digit' })}
-                            ${rainDuration ? ` · अवधि: ${formatMinutes(rainDuration)}` : ''}
-                            <span class="prob-badge">🎯 ${rainProb}% संभावना</span>
+                <div class="card-grid">
+                    <div class="card" onclick="toggleDetail(this, 'temp-detail')">
+                        <div class="card-row">
+                            <span class="card-label"><span class="emoji">🌡️</span> तापमान</span>
+                            <span class="card-value" style="color:${tempColor};">${Math.round(temp)}°C <span class="sub">${Math.round(feels)}° feels</span></span>
                         </div>
-                        ${rainDuration ? `<div class="card-sub-text" style="opacity:0.7;">☔ अंतिम बूंद: ${rainEndInfo ? rainEndInfo.time.toLocaleString('hi-IN', { hour: '2-digit', minute: '2-digit' }) : 'अज्ञात'}</div>` : ''}
-                    ` : `<div class="card-sub-text">अगले 48 घंटों में कोई बारिश नहीं</div>`}
-                    <div class="detail-panel" id="rain-detail">${rainStartInfo ? `
-                        🌧️ पहली बूंद: ${rainStartInfo.time.toLocaleString('hi-IN')}
-                        ⏱️ ${formatCountdown(rainSec)} बचा
-                        ${rainDuration ? `☔ अवधि: ${formatMinutes(rainDuration)} (${Math.round(rainDuration/60)} मिनट)` : ''}
-                        ${rainEndInfo ? `🌧️ अंतिम बूंद: ${rainEndInfo.time.toLocaleString('hi-IN')}` : ''}
-                        📊 संभावना: ${rainProb}%
-                        📈 स्रोत: Open-Meteo Ensemble (51 मॉडल)
-                    ` : '☀️ 48 घंटे शुष्क रहेंगे'}</div>
-                </div>
-
-                <!-- Sun Card -->
-                <div class="card" onclick="toggleDetail(this, 'sun-detail')">
-                    <div class="card-row">
-                        <span class="card-label"><span class="emoji">${sunTimer.type === '🌅 सूर्योदय' ? '🌅' : '🌇'}</span> ${sunTimer.type}</span>
-                        <span class="card-value">${formatCountdown(sunTimer.seconds)} <span class="sub">बचा</span></span>
+                        <div class="temp-meter"><div class="temp-fill" style="width:${tempFill}%;"></div></div>
+                        <div class="detail-panel" id="temp-detail">🌡️ वास्तविक: ${temp}°C\n🌬️ महसूस: ${feels}°C\n💧 नमी: ${humidity}%</div>
                     </div>
-                    <div class="card-sub-text">☀️ उदय: ${daily.sunrise[0].slice(11,16)} · 🌇 अस्त: ${daily.sunset[0].slice(11,16)}</div>
-                    <div class="detail-panel" id="sun-detail">🌅 अगला: ${sunTimer.type}\n⏱️ ${formatCountdown(sunTimer.seconds)} शेष\n🕒 लक्ष्य: ${sunTimer.target ? sunTimer.target.toLocaleString('hi-IN') : 'N/A'}</div>
-                </div>
 
-                <!-- Moon Card -->
-                <div class="card" onclick="toggleDetail(this, 'moon-detail')">
-                    <div class="card-row">
-                        <span class="card-label"><span class="emoji">🌙</span> चंद्र टाइमर</span>
-                        <span class="card-value">${isFinite(moonTimer.seconds) ? formatCountdown(moonTimer.seconds) : '—'} <span class="sub">बचा</span></span>
+                    <div class="card" onclick="toggleDetail(this, 'aqi-detail')">
+                        <div class="card-row">
+                            <span class="card-label"><span class="emoji">🧪</span> वायु गुणवत्ता</span>
+                            <span class="card-value"><span class="aqi-badge" style="background:${aqiInfo.color};color:#000;">${aqiInfo.label}</span> <span class="sub">PM2.5 ${Math.round(pm25)}</span></span>
+                        </div>
+                        <div class="card-sub-text">PM10: ${Math.round(pm10)} µg/m³</div>
+                        <div class="detail-panel" id="aqi-detail">🧪 AQI स्तर: ${aqiInfo.label}\nPM2.5: ${pm25.toFixed(1)} µg/m³\nPM10: ${pm10.toFixed(1)} µg/m³</div>
                     </div>
-                    <div class="card-sub-text">${moonTimer.type} · ${moonTimer.target ? moonTimer.target.toLocaleString('hi-IN', { hour: '2-digit', minute: '2-digit' }) : 'डेटा नहीं'}</div>
-                    <div class="detail-panel" id="moon-detail">🌙 घटना: ${moonTimer.type}\n⏱️ ${isFinite(moonTimer.seconds) ? formatCountdown(moonTimer.seconds) : '∞'} शेष\n🕒 ${moonTimer.target ? moonTimer.target.toLocaleString('hi-IN') : 'अनुपलब्ध'}</div>
-                </div>
 
-                <!-- Humidity & Cloud -->
-                <div class="card" onclick="toggleDetail(this, 'extra-detail')">
-                    <div class="card-row">
-                        <span class="card-label"><span class="emoji">💧</span> आर्द्रता / बादल</span>
-                        <span class="card-value">${Math.round(humidity)}% <span class="sub">☁️ ${Math.round(clouds)}%</span></span>
+                    <div class="card" onclick="toggleDetail(this, 'wind-detail')">
+                        <div class="card-row">
+                            <span class="card-label"><span class="emoji">💨</span> हवा</span>
+                            <span class="card-value">${windSpeed.toFixed(1)} km/h <span class="sub">${windCardinal}</span></span>
+                        </div>
+                        <div class="card-sub-text">🧭 दिशा: ${windCardinal} (${Math.round(windDir)}°)</div>
+                        <div class="detail-panel" id="wind-detail">💨 गति: ${windSpeed.toFixed(1)} km/h\n🧭 दिशा: ${windCardinal} (${Math.round(windDir)}°)</div>
                     </div>
-                    <div class="card-sub-text">नमी: ${Math.round(humidity)}% · बादल: ${Math.round(clouds)}%</div>
-                    <div class="detail-panel" id="extra-detail">💧 आर्द्रता: ${humidity}%\n☁️ बादल: ${clouds}%</div>
-                </div>
 
-                <!-- Pressure Card -->
-                <div class="card" onclick="toggleDetail(this, 'pressure-detail')">
-                    <div class="card-row">
-                        <span class="card-label"><span class="emoji">📊</span> हवा का दबाव</span>
-                        <span class="card-value">${currentExtra.pressure_msl ? currentExtra.pressure_msl.toFixed(1) : '—'} hPa</span>
+                    <div class="card" onclick="toggleDetail(this, 'rain-detail')">
+                        <div class="card-row">
+                            <span class="card-label"><span class="emoji">☔</span> वर्षा टाइमर</span>
+                            <span class="card-value">${rainStartInfo ? rainDisplay : '☀️ साफ़'}</span>
+                        </div>
+                        ${rainStartInfo ? `
+                            <div class="card-sub-text">
+                                🌧️ पहली बूंद: ${rainStartInfo.time.toLocaleString('hi-IN', { hour: '2-digit', minute: '2-digit' })}
+                                ${rainDuration ? ` · अवधि: ${formatMinutes(rainDuration)}` : ''}
+                                <span class="prob-badge">🎯 ${rainProb}% संभावना</span>
+                            </div>
+                            ${rainDuration ? `<div class="card-sub-text" style="opacity:0.7;">☔ अंतिम बूंद: ${rainEndInfo ? rainEndInfo.time.toLocaleString('hi-IN', { hour: '2-digit', minute: '2-digit' }) : 'अज्ञात'}</div>` : ''}
+                        ` : `<div class="card-sub-text">अगले 48 घंटों में कोई बारिश नहीं</div>`}
+                        <div class="detail-panel" id="rain-detail">${rainStartInfo ? `
+                            🌧️ पहली बूंद: ${rainStartInfo.time.toLocaleString('hi-IN')}
+                            ⏱️ ${formatCountdown(rainSec)} बचा
+                            ${rainDuration ? `☔ अवधि: ${formatMinutes(rainDuration)} (${Math.round(rainDuration/60)} मिनट)` : ''}
+                            ${rainEndInfo ? `🌧️ अंतिम बूंद: ${rainEndInfo.time.toLocaleString('hi-IN')}` : ''}
+                            📊 संभावना: ${rainProb}%
+                            📈 स्रोत: Open-Meteo Ensemble (51 मॉडल)
+                        ` : '☀️ 48 घंटे शुष्क रहेंगे'}</div>
                     </div>
-                    <div class="card-sub-text">${lastPressure ? `पिछला: ${lastPressure.toFixed(1)} hPa` : 'बैरोमीटर सक्रिय'}</div>
-                    <div class="detail-panel" id="pressure-detail">📊 दबाव: ${currentExtra.pressure_msl ? currentExtra.pressure_msl.toFixed(1) : 'अनुपलब्ध'} hPa\n${lastPressure ? `पिछला रीडिंग: ${lastPressure.toFixed(1)} hPa` : ''}\n⚡ 2+ hPa गिरावट = तूफ़ान संभावना</div>
+
+                    <div class="card" onclick="toggleDetail(this, 'sun-detail')">
+                        <div class="card-row">
+                            <span class="card-label"><span class="emoji">${sunTimer.type === '🌅 सूर्योदय' ? '🌅' : '🌇'}</span> ${sunTimer.type}</span>
+                            <span class="card-value">${formatCountdown(sunTimer.seconds)} <span class="sub">बचा</span></span>
+                        </div>
+                        <div class="card-sub-text">☀️ उदय: ${daily.sunrise[0].slice(11,16)} · 🌇 अस्त: ${daily.sunset[0].slice(11,16)}</div>
+                        <div class="detail-panel" id="sun-detail">🌅 अगला: ${sunTimer.type}\n⏱️ ${formatCountdown(sunTimer.seconds)} शेष\n🕒 लक्ष्य: ${sunTimer.target ? sunTimer.target.toLocaleString('hi-IN') : 'N/A'}</div>
+                    </div>
+
+                    <div class="card" onclick="toggleDetail(this, 'moon-detail')">
+                        <div class="card-row">
+                            <span class="card-label"><span class="emoji">🌙</span> चंद्र टाइमर</span>
+                            <span class="card-value">${isFinite(moonTimer.seconds) ? formatCountdown(moonTimer.seconds) : '—'} <span class="sub">बचा</span></span>
+                        </div>
+                        <div class="card-sub-text">${moonTimer.type} · ${moonTimer.target ? moonTimer.target.toLocaleString('hi-IN', { hour: '2-digit', minute: '2-digit' }) : 'डेटा नहीं'}</div>
+                        <div class="detail-panel" id="moon-detail">🌙 घटना: ${moonTimer.type}\n⏱️ ${isFinite(moonTimer.seconds) ? formatCountdown(moonTimer.seconds) : '∞'} शेष\n🕒 ${moonTimer.target ? moonTimer.target.toLocaleString('hi-IN') : 'अनुपलब्ध'}</div>
+                    </div>
+
+                    <div class="card" onclick="toggleDetail(this, 'extra-detail')">
+                        <div class="card-row">
+                            <span class="card-label"><span class="emoji">💧</span> आर्द्रता / बादल</span>
+                            <span class="card-value">${Math.round(humidity)}% <span class="sub">☁️ ${Math.round(clouds)}%</span></span>
+                        </div>
+                        <div class="card-sub-text">नमी: ${Math.round(humidity)}% · बादल: ${Math.round(clouds)}%</div>
+                        <div class="detail-panel" id="extra-detail">💧 आर्द्रता: ${humidity}%\n☁️ बादल: ${clouds}%</div>
+                    </div>
+
+                    <div class="card" onclick="toggleDetail(this, 'pressure-detail')">
+                        <div class="card-row">
+                            <span class="card-label"><span class="emoji">📊</span> हवा का दबाव</span>
+                            <span class="card-value">${currentExtra.pressure_msl ? currentExtra.pressure_msl.toFixed(1) : '—'} hPa</span>
+                        </div>
+                        <div class="card-sub-text">${lastPressure ? `पिछला: ${lastPressure.toFixed(1)} hPa` : 'बैरोमीटर सक्रिय'}</div>
+                        <div class="detail-panel" id="pressure-detail">📊 दबाव: ${currentExtra.pressure_msl ? currentExtra.pressure_msl.toFixed(1) : 'अनुपलब्ध'} hPa\n${lastPressure ? `पिछला रीडिंग: ${lastPressure.toFixed(1)} hPa` : ''}\n⚡ 2+ hPa गिरावट = तूफ़ान संभावना</div>
+                    </div>
                 </div>
             `;
 
-            // Store for countdown ticker
             window._rainSec = rainSec;
             window._rainTime = rainStartInfo ? rainStartInfo.time : null;
             window._sunSec = sunTimer.seconds;
@@ -968,7 +1224,7 @@
         }
 
         // ============================================================
-        //  10. COUNTDOWN TICKER
+        //  12. COUNTDOWN TICKER
         // ============================================================
         function startCountdown() {
             if (countdownInterval) clearInterval(countdownInterval);
@@ -977,7 +1233,6 @@
                 const cards = document.querySelectorAll('.card');
                 if (cards.length < 7) return;
 
-                // Rain (index 3)
                 if (window._rainTime) {
                     const diff = (window._rainTime - now) / 1000;
                     const rainCard = cards[3];
@@ -990,7 +1245,6 @@
                     }
                 }
 
-                // Sun (index 4)
                 if (window._sunTarget) {
                     const diff = (window._sunTarget - now) / 1000;
                     const sunCard = cards[4];
@@ -1000,7 +1254,6 @@
                     }
                 }
 
-                // Moon (index 5)
                 if (window._moonTarget && isFinite(window._moonSec)) {
                     const diff = (window._moonTarget - now) / 1000;
                     const moonCard = cards[5];
@@ -1013,7 +1266,7 @@
         }
 
         // ============================================================
-        //  11. TOGGLE DETAIL
+        //  13. TOGGLE DETAIL
         // ============================================================
         function toggleDetail(card, id) {
             const panel = document.getElementById(id);
@@ -1025,15 +1278,13 @@
         window.toggleDetail = toggleDetail;
 
         // ============================================================
-        //  12. SEARCH, HOME, REFRESH, MANUAL
+        //  14. SEARCH, HOME, REFRESH, MANUAL
         // ============================================================
         async function handleSearch() {
             const query = searchInput.value.trim();
             if (!query) return;
-
             try {
                 const results = await geocodeNominatim(query);
-                // Display results in dropdown
                 searchResults.style.display = 'block';
                 searchResults.innerHTML = '';
                 results.forEach(item => {
@@ -1061,7 +1312,6 @@
             }
         }
 
-        // Hide results when clicking outside
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.top-bar') && !e.target.closest('.search-results')) {
                 searchResults.style.display = 'none';
@@ -1088,7 +1338,7 @@
             const lat = parseFloat(latInput.value);
             const lon = parseFloat(lonInput.value);
             if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-                alert('कृपया सही अक्षांश ( -90 से 90 ) और देशांतर ( -180 से 180 ) डालें');
+                alert('कृपया सही अक्षांश (-90 से 90) और देशांतर (-180 से 180) डालें');
                 return;
             }
             loadData(lat, lon, `मैन्युअल (${lat.toFixed(4)}, ${lon.toFixed(4)})`);
@@ -1112,7 +1362,9 @@
             }
         }
 
-        // --- Event Listeners ---
+        // ============================================================
+        //  15. EVENT LISTENERS & INIT
+        // ============================================================
         searchBtn.addEventListener('click', handleSearch);
         searchInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') handleSearch();
@@ -1124,7 +1376,7 @@
         latInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleManualGo(); });
         lonInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleManualGo(); });
 
-        // --- Auto Refresh every 15 minutes ---
+        // Auto refresh every 15 minutes
         setInterval(() => {
             if (isHomeMode) {
                 getLocationAndFetch();
@@ -1133,10 +1385,11 @@
             }
         }, 15 * 60 * 1000);
 
-        // --- Start ---
+        // Initialize
         renderSavedChips();
         initBarometer();
         getLocationAndFetch();
+        // Map will be initialized when loadData calls updateMap
     </script>
 </body>
 </html>
