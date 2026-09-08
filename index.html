@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌦️ मौसम टाइमर – पूर्ण संस्करण</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Segoe UI', 'Noto Sans Devanagari', system-ui, sans-serif;
+            background: linear-gradient(145deg, #0b1a2e, #1a2f44);
+            min-height: 100vh;
+            padding: 12px;
+            color: #fff;
+        }
+        .container {
+            max-width: 520px;
+            margin: 0 auto;
+        }
+        /* Top Bar */
+        .top-bar {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.07);
+            backdrop-filter: blur(8px);
+            border-radius: 40px;
+            padding: 4px 4px 4px 14px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+        .top-bar input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            padding: 8px 0;
+            color: #fff;
+            font-size: 0.9rem;
+            outline: none;
+            min-width: 80px;
+        }
+        .top-bar input::placeholder {
+            color: rgba(255, 255, 255, 0.35);
+        }
+        .top-bar button {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 30px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: 0.2s;
+            white-space: nowrap;
+            font-weight: 600;
+        }
+        .top-bar button:active {
+            transform: scale(0.95);
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .top-bar .refresh-btn {
+            background: rgba(34, 197, 94, 0.25);
+            padding: 6px 12px;
+        }
+        .top-bar .home-btn {
+            background: rgba(59, 130, 246, 0.25);
+            padding: 6px 12px;
+        }
+        .saved-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 8px;
+            padding: 2px 0;
+        }
+        .saved-chips span {
+            background: rgba(255, 255, 255, 0.07);
+            padding: 3px 12px;
+            border-radius: 30px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            transition: 0.2s;
+        }
+        .saved-chips span:active {
+            transform: scale(0.95);
+            background: rgba(255, 255, 255, 0.15);
+        }
+        .saved-chips .save-curr {
+            background: rgba(34, 197, 94, 0.15);
+            border-color: rgba(34, 197, 94, 0.2);
+        }
+        .location-badge {
+            text-align: center;
+            font-size: 1rem;
+            font-weight: 500;
+            padding: 4px 0 10px;
+            opacity: 0.9;
+            letter-spacing: 0.3px;
+        }
+        .location-badge small {
+            opacity: 0.5;
+            font-size: 0.65rem;
+            display: block;
+        }
+        /* Map */
+        .map-container {
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 14px;
+            height: 160px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+        .map-container iframe {
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+        /* Cards */
+        .card-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 18px;
+            padding: 14px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            transition: 0.3s ease;
+            cursor: pointer;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+        }
+        .card:active {
+            transform: scale(0.98);
+        }
+        .card-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .card-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        .card-label .emoji {
+            font-size: 1.4rem;
+            line-height: 1;
+        }
+        .card-value {
+            font-size: 1.3rem;
+            font-weight: 700;
+            text-align: right;
+            line-height: 1.2;
+        }
+        .card-value .sub {
+            font-size: 0.6rem;
+            opacity: 0.5;
+            font-weight: 400;
+            display: block;
+        }
+        .card-sub-text {
+            font-size: 0.75rem;
+            opacity: 0.6;
+            margin-top: 2px;
+        }
+        .temp-meter {
+            margin-top: 5px;
+            height: 4px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+        }
+        .temp-fill {
+            height: 100%;
+            border-radius: 10px;
+            width: 60%;
+            background: linear-gradient(90deg, #3b82f6, #facc15, #ef4444);
+            transition: width 0.5s ease;
+        }
+        .detail-panel {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 8px 12px;
+            margin-top: 10px;
+            font-size: 0.65rem;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 160px;
+            overflow-y: auto;
+            display: none;
+            color: #a5d8ff;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+        .detail-panel.open {
+            display: block;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 24px;
+            font-size: 0.6rem;
+            opacity: 0.3;
+            padding-bottom: 16px;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px 0;
+            font-size: 1rem;
+            opacity: 0.7;
+        }
+        .error {
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 14px;
+            padding: 14px;
+            text-align: center;
+            color: #fca5a5;
+        }
+        .aqi-badge {
+            padding: 2px 10px;
+            border-radius: 30px;
+            font-size: 0.6rem;
+            font-weight: 600;
+            background: #22c55e;
+            color: #000;
+        }
+        .storm-alert {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            border-radius: 14px;
+            padding: 10px 14px;
+            margin-bottom: 12px;
+            display: none;
+            text-align: center;
+            font-weight: 500;
+            color: #fca5a5;
+        }
+        .storm-alert.active {
+            display: block;
+        }
+        .prob-badge {
+            font-size: 0.65rem;
+            padding: 2px 10px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.08);
+            color: #93c5fd;
+        }
+        /* Owner Profile */
+        .owner-profile {
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 18px;
+            padding: 16px;
+            margin: 20px 0 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(8px);
+        }
+        .owner-profile-inner {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .owner-profile-inner img {
+            width: 65px;
+            height: 65px;
+            border-radius: 50%;
+            border: 3px solid rgba(59, 130, 246, 0.25);
+            object-fit: cover;
+            background: #1a2f44;
+            flex-shrink: 0;
+        }
+        .owner-info {
+            flex: 1;
+            font-size: 0.7rem;
+            line-height: 1.5;
+        }
+        .owner-name {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .owner-name strong {
+            color: #93c5fd;
+            font-size: 1rem;
+        }
+        .owner-badge {
+            background: rgba(59, 130, 246, 0.12);
+            padding: 0 10px;
+            border-radius: 30px;
+            font-size: 0.55rem;
+            color: #93c5fd;
+        }
+        .owner-contact {
+            opacity: 0.7;
+            font-size: 0.7rem;
+        }
+        .owner-contact a {
+            color: #93c5fd;
+            text-decoration: none;
+        }
+        .owner-qualifications {
+            opacity: 0.5;
+            font-size: 0.6rem;
+            margin-top: 2px;
+        }
+        @media (max-width: 420px) {
+            .card-value {
+                font-size: 1.1rem;
+            }
+            .card-label {
+                font-size: 0.8rem;
+            }
+            .top-bar input {
+                font-size: 0.8rem;
+            }
+            .top-bar button {
+                font-size: 0.7rem;
+                padding: 4px 8px;
+            }
+            .owner-profile-inner img {
+                width: 50px;
+                height: 50px;
+            }
+            .owner-info {
+                font-size: 0.6rem;
+            }
+            .owner-name strong {
+                font-size: 0.85rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="app">
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <input type="text" id="searchInput" placeholder="🔍 शहर खोजें..." />
+            <button id="searchBtn">खोज</button>
+            <button class="refresh-btn" id="refreshBtn">🔄 ताज़ा</button>
+            <button class="home-btn" id="homeBtn">🏠 घर</button>
+        </div>
+
+        <!-- Saved Places -->
+        <div class="saved-chips" id="savedChips"></div>
+
+        <!-- Location & Map -->
+        <div class="location-badge" id="locationDisplay">📍 स्थान प्राप्त कर रहा है...</div>
+
+        <!-- Storm Alert (Barometer based) -->
+        <div class="storm-alert" id="stormAlert">⚡ तूफ़ान की संभावना! हवा का दबाव तेज़ी से गिर रहा है।</div>
+
+        <div class="map-container" id="mapContainer">
+            <iframe id="mapIframe" src="https://www.openstreetmap.org/export/embed.html?bbox=76.0,27.0,78.0,30.0&layer=mapnik&marker=28.6139,77.2090" loading="lazy"></iframe>
+        </div>
+
+        <!-- Content Cards -->
+        <div id="content">
+            <div class="loading">⏳ डेटा लोड हो रहा है...</div>
+        </div>
+
+        <!-- ============================================================
+             OWNER PROFILE - DIVY
+             ============================================================ -->
+        <div class="owner-profile">
+            <div class="owner-profile-inner">
+                <img src="owner.jpg" alt="DIVY" onerror="this.style.display='none'">
+                <div class="owner-info">
+                    <div class="owner-name">
+                        <strong>DIVY</strong>
+                        <span class="owner-badge">👨‍💻 डेवलपर</span>
+                    </div>
+                    <div class="owner-contact">
+                        📱 <a href="tel:9369224174">9369224174</a>
+                        &nbsp;·&nbsp;
+                        📧 <a href="mailto:umadivy500@gmail.com">umadivy500@gmail.com</a>
+                    </div>
+                    <div class="owner-qualifications">
+                        🎓 IIT MAINS QUALIFIED · 🪖 EX-BSF ARMY · 🏦 EX-INDIAN BANK EMPLOYEE
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">🔁 हर 15 मिनट में अपडेट · Open-Meteo + मोबाइल सेंसर · v2.0</div>
+    </div>
+
+    <script>
+        // ============================================================
+        //  1. GLOBAL STATE
+        // ============================================================
+        let currentLat = 28.6139;
+        let currentLon = 77.2090;
+        let currentCity = "दिल्ली";
+        let weatherData = null;
+        let countdownInterval = null;
+        let isHomeMode = true;
+        let lastPressure = null;
+        let pressureDropStart = null;
+
+        // ============================================================
+        //  2. DOM REFS
+        // ============================================================
+        const content = document.getElementById('content');
+        const locationDisplay = document.getElementById('locationDisplay');
+        const mapIframe = document.getElementById('mapIframe');
+        const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const homeBtn = document.getElementById('homeBtn');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const savedChips = document.getElementById('savedChips');
+        const stormAlert = document.getElementById('stormAlert');
+
+        // ============================================================
+        //  3. HELPERS
+        // ============================================================
+        function formatCountdown(seconds) {
+            if (seconds < 0) seconds = 0;
+            if (!isFinite(seconds) || seconds > 86400 * 30) return "∞";
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = Math.floor(seconds % 60);
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+
+        function formatMinutes(seconds) {
+            if (seconds < 0) seconds = 0;
+            if (!isFinite(seconds)) return "∞";
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            if (h > 0) return `${h} घंटा ${m} मिनट`;
+            return `${m} मिनट`;
+        }
+
+        function getCardinal(deg) {
+            const dirs = ['उत्तर', 'उत्तर-पूर्व', 'पूर्व', 'दक्षिण-पूर्व', 'दक्षिण', 'दक्षिण-पश्चिम', 'पश्चिम', 'उत्तर-पश्चिम'];
+            const idx = Math.round(((deg % 360) / 45)) % 8;
+            return dirs[idx];
+        }
+
+        function getAQILevel(pm25) {
+            if (pm25 <= 30) return { label: 'अच्छा', color: '#22c55e' };
+            if (pm25 <= 60) return { label: 'संतोषजनक', color: '#a3e635' };
+            if (pm25 <= 90) return { label: 'मध्यम', color: '#facc15' };
+            if (pm25 <= 120) return { label: 'खराब', color: '#fb923c' };
+            if (pm25 <= 250) return { label: 'बहुत खराब', color: '#ef4444' };
+            return { label: 'गंभीर', color: '#7f1d1d' };
+        }
+
+        function getProbability(seconds) {
+            // Simple model: closer to current time = higher confidence
+            if (seconds < 3600) return 85;
+            if (seconds < 7200) return 80;
+            if (seconds < 14400) return 75;
+            if (seconds < 28800) return 70;
+            if (seconds < 86400) return 65;
+            return 60;
+        }
+
+        // ============================================================
+        //  4. SAVED PLACES (localStorage)
+        // ============================================================
+        function getSaved() {
+            try {
+                return JSON.parse(localStorage.getItem('weather_saved')) || [];
+            } catch { return []; }
+        }
+
+        function savePlace(name, lat, lon) {
+            let saved = getSaved();
+            saved = saved.filter(p => !(Math.abs(p.lat - lat) < 0.01 && Math.abs(p.lon - lon) < 0.01));
+            saved.push({ name, lat, lon });
+            if (saved.length > 20) saved.shift();
+            localStorage.setItem('weather_saved', JSON.stringify(saved));
+            renderSavedChips();
+        }
+
+        function renderSavedChips() {
+            const saved = getSaved();
+            savedChips.innerHTML = '';
+            const saveBtn = document.createElement('span');
+            saveBtn.className = 'save-curr';
+            saveBtn.textContent = '➕ सहेजें';
+            saveBtn.onclick = () => {
+                if (currentCity) savePlace(currentCity, currentLat, currentLon);
+                else alert('स्थान का नाम उपलब्ध नहीं');
+            };
+            savedChips.appendChild(saveBtn);
+
+            saved.forEach(p => {
+                const chip = document.createElement('span');
+                chip.textContent = `📍 ${p.name}`;
+                chip.onclick = () => {
+                    loadData(p.lat, p.lon, p.name);
+                    isHomeMode = false;
+                };
+                savedChips.appendChild(chip);
+            });
+        }
+
+        // ============================================================
+        //  5. FETCHING DATA
+        // ============================================================
+        async function fetchWeather(lat, lon) {
+            const base = 'https://api.open-meteo.com/v1/forecast';
+            const params = new URLSearchParams({
+                latitude: lat,
+                longitude: lon,
+                current_weather: true,
+                hourly: 'precipitation',
+                daily: 'sunrise,sunset,moonrise,moonset',
+                timezone: 'Asia/Kolkata',
+                forecast_days: 2,
+                past_days: 0,
+                current: 'temperature_2m,relative_humidity_2m,apparent_temperature,cloud_cover,wind_speed_10m,wind_direction_10m,pressure_msl'
+            });
+            const url = `${base}?${params.toString()}`;
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return await res.json();
+        }
+
+        async function fetchAQI(lat, lon) {
+            const url =
+                `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=pm10,pm2_5&timezone=Asia/Kolkata`;
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`AQI HTTP ${res.status}`);
+            return await res.json();
+        }
+
+        async function geocode(query) {
+            const url =
+                `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=5&language=hi&format=json`;
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('खोज विफल');
+            const json = await res.json();
+            if (!json.results || json.results.length === 0) throw new Error('शहर नहीं मिला');
+            return json.results[0];
+        }
+
+        async function reverseGeocode(lat, lon) {
+            try {
+                const url =
+                    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&accept-language=hi`;
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('रिवर्स खोज विफल');
+                const json = await res.json();
+                if (json && json.display_name) {
+                    const parts = json.display_name.split(',');
+                    return parts[0] || 'अज्ञात';
+                }
+                return 'अज्ञात';
+            } catch { return 'अज्ञात'; }
+        }
+
+        // ============================================================
+        //  6. BAROMETER / STORM DETECTION
+        // ============================================================
+        function checkPressureDrop(pressure) {
+            if (!pressure || pressure <= 0) return;
+
+            if (lastPressure !== null) {
+                const drop = lastPressure - pressure;
+                if (drop > 2.0) {
+                    if (!pressureDropStart) {
+                        pressureDropStart = Date.now();
+                    }
+                    if (Date.now() - pressureDropStart > 5 * 60 * 1000) {
+                        stormAlert.classList.add('active');
+                        stormAlert.textContent = `⚡ तूफ़ान की संभावना! दबाव ${drop.toFixed(1)} hPa गिरा (${lastPressure.toFixed(1)} → ${pressure.toFixed(1)})`;
+                    }
+                } else if (drop < -0.5) {
+                    stormAlert.classList.remove('active');
+                    pressureDropStart = null;
+                } else {
+                    if (pressureDropStart && Date.now() - pressureDropStart > 30 * 60 * 1000) {
+                        stormAlert.classList.remove('active');
+                        pressureDropStart = null;
+                    }
+                }
+            }
+            lastPressure = pressure;
+        }
+
+        function initBarometer() {
+            if ('PressureSensor' in window) {
+                try {
+                    const sensor = new PressureSensor({ frequency: 60 });
+                    sensor.addEventListener('reading', () => {
+                        checkPressureDrop(sensor.pressure);
+                    });
+                    sensor.start();
+                    console.log('📱 बैरोमीटर सक्रिय');
+                } catch (e) {
+                    console.log('📱 बैरोमीटर अनुपलब्ध:', e.message);
+                }
+            } else {
+                console.log('📱 बैरोमीटर नहीं मिला (केवल कुछ फोन)');
+            }
+        }
+
+        // ============================================================
+        //  7. LOAD & RENDER
+        // ============================================================
+        async function loadData(lat, lon, cityName) {
+            currentLat = lat;
+            currentLon = lon;
+            if (cityName) currentCity = cityName;
+            else {
+                try {
+                    currentCity = await reverseGeocode(lat, lon);
+                } catch {
+                    currentCity = `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
+                }
+            }
+            locationDisplay.innerHTML = `📍 ${currentCity} · <small>IST (UTC+5:30)</small>`;
+            const bbox = `${lon-0.2},${lat-0.2},${lon+0.2},${lat+0.2}`;
+            mapIframe.src =
+                `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lon}`;
+
+            content.innerHTML = '<div class="loading">⏳ डेटा लोड हो रहा है...</div>';
+
+            try {
+                const [weather, aqi] = await Promise.all([fetchWeather(lat, lon), fetchAQI(lat, lon)]);
+                weatherData = weather;
+
+                if (weather.current?.pressure_msl) {
+                    checkPressureDrop(weather.current.pressure_msl);
+                }
+
+                renderUI(weather, aqi, lat, lon);
+                startCountdown();
+                renderSavedChips();
+            } catch (err) {
+                content.innerHTML = `<div class="error">❌ त्रुटि: ${err.message}<br><small>कृपया पुनः प्रयास करें</small></div>`;
+            }
+        }
+
+        // ============================================================
+        //  8. RENDER UI (Cards)
+        // ============================================================
+        function renderUI(weather, aqi, lat, lon) {
+            const now = new Date();
+            const current = weather.current_weather;
+            const daily = weather.daily;
+            const hourly = weather.hourly;
+            const currentExtra = weather.current || {};
+
+            // --- Temperature ---
+            const temp = current.temperature || 0;
+            const feels = currentExtra.apparent_temperature || temp;
+            const tempFill = Math.min(100, Math.max(0, ((temp + 5) / 45) * 100));
+            const tempColor = temp < 15 ? '#3b82f6' : temp < 25 ? '#22c55e' : temp < 35 ? '#facc15' : '#ef4444';
+
+            // --- Wind ---
+            const windSpeed = current.wind_speed || 0;
+            const windDir = current.wind_direction || 0;
+            const windCardinal = getCardinal(windDir);
+
+            // --- AQI ---
+            const pm25 = aqi?.current?.pm2_5 || 0;
+            const pm10 = aqi?.current?.pm10 || 0;
+            const aqiInfo = getAQILevel(pm25);
+
+            // --- Rain Timer & Duration ---
+            let rainStartInfo = null;
+            let rainEndInfo = null;
+            let rainDuration = null;
+            const threshold = 0.2;
+
+            let firstIndex = -1;
+            let lastIndex = -1;
+            for (let i = 0; i < hourly.time.length; i++) {
+                const t = new Date(hourly.time[i]);
+                if (t > now && hourly.precipitation[i] > threshold) {
+                    if (firstIndex === -1) firstIndex = i;
+                    lastIndex = i;
+                }
+            }
+
+            if (firstIndex !== -1) {
+                const startTime = new Date(hourly.time[firstIndex]);
+                const endTime = new Date(hourly.time[lastIndex]);
+                rainStartInfo = {
+                    seconds: (startTime - now) / 1000,
+                    time: startTime,
+                    precip: hourly.precipitation[firstIndex]
+                };
+                rainEndInfo = {
+                    time: endTime,
+                    precip: hourly.precipitation[lastIndex]
+                };
+                rainDuration = (endTime - startTime) / 1000;
+            }
+
+            // --- Sun Timer ---
+            function getSunTimer() {
+                const sunrise = new Date(daily.sunrise[0]);
+                const sunset = new Date(daily.sunset[0]);
+                let nextRise = new Date(sunrise);
+                let nextSet = new Date(sunset);
+                if (now > sunrise) nextRise.setDate(nextRise.getDate() + 1);
+                if (now > sunset) nextSet.setDate(nextSet.getDate() + 1);
+                const dR = (nextRise - now) / 1000;
+                const dS = (nextSet - now) / 1000;
+                if (dR < dS && dR > 0) return { type: '🌅 सूर्योदय', seconds: dR, target: nextRise };
+                else return { type: '🌇 सूर्यास्त', seconds: dS, target: nextSet };
+            }
+            const sunTimer = getSunTimer();
+
+            // --- Moon Timer ---
+            function getMoonTimer() {
+                let candidates = [];
+                if (daily.moonrise && daily.moonrise[0]) {
+                    let r = new Date(daily.moonrise[0]);
+                    if (now > r) r.setDate(r.getDate() + 1);
+                    candidates.push({ type: '🌙 चंद्रोदय', seconds: (r - now) / 1000, target: r });
+                }
+                if (daily.moonset && daily.moonset[0]) {
+                    let s = new Date(daily.moonset[0]);
+                    if (now > s) s.setDate(s.getDate() + 1);
+                    candidates.push({ type: '🌘 चंद्रास्त', seconds: (s - now) / 1000, target: s });
+                }
+                if (candidates.length === 0) return { type: '🌙 चंद्र', seconds: Infinity, target: null };
+                candidates.sort((a, b) => a.seconds - b.seconds);
+                const pos = candidates.filter(c => c.seconds > 0);
+                if (pos.length === 0) return candidates[0];
+                return pos[0];
+            }
+            const moonTimer = getMoonTimer();
+
+            // --- Humidity & Cloud ---
+            const humidity = currentExtra.relative_humidity_2m || 0;
+            const clouds = currentExtra.cloud_cover || 0;
+
+            // --- Build Rain Display ---
+            let rainDisplay = '☀️ 48h शुष्क';
+            let rainSec = null;
+            let rainProb = 0;
+
+            if (rainStartInfo) {
+                rainSec = rainStartInfo.seconds;
+                rainProb = getProbability(rainSec);
+                const durationText = rainDuration ? formatMinutes(rainDuration) : 'अज्ञात';
+                rainDisplay = `⏳ ${formatCountdown(rainSec)}`;
+                window._rainDuration = rainDuration;
+                window._rainEndTime = rainEndInfo ? rainEndInfo.time : null;
+                window._rainProb = rainProb;
+            }
+
+            // --- Build HTML ---
+            content.innerHTML = `
+                <!-- Temp Card -->
+                <div class="card" onclick="toggleDetail(this, 'temp-detail')">
+                    <div class="card-row">
+                        <span class="card-label"><span class="emoji">🌡️</span> तापमान</span>
+                        <span class="card-value" style="color:${tempColor};">${Math.round(temp)}°C <span class="sub">${Math.round(feels)}° feels</span></span>
+                    </div>
+                    <div class="temp-meter"><div class="temp-fill" style="width:${tempFill}%;"></div></div>
+                    <div class="detail-panel" id="temp-detail">🌡️ वास्तविक: ${temp}°C\n🌬️ महसूस: ${feels}°C\n💧 नमी: ${humidity}%</div>
+                </div>
+
+                <!-- AQI Card -->
+                <div class="card" onclick="toggleDetail(this, 'aqi-detail')">
+                    <div class="card-row">
+                        <span class="card-label"><span class="emoji">🧪</span> वायु गुणवत्ता</span>
+                        <span class="card-value"><span class="aqi-badge" style="background:${aqiInfo.color};color:#000;">${aqiInfo.label}</span> <span class="sub">PM2.5 ${Math.round(pm25)}</span></span>
+                    </div>
+                    <div class="card-sub-text">PM10: ${Math.round(pm10)} µg/m³</div>
+                    <div class="detail-panel" id="aqi-detail">🧪 AQI स्तर: ${aqiInfo.label}\nPM2.5: ${pm25.toFixed(1)} µg/m³\nPM10: ${pm10.toFixed(1)} µg/m³</div>
+                </div>
+
+                <!-- Wind Card -->
+                <div class="card" onclick="toggleDetail(this, 'wind-detail')">
+                    <div class="card-row">
+                        <span class="card-label"><span class="emoji">💨</span> हवा</span>
+                        <span class="card-value">${windSpeed.toFixed(1)} km/h <span class="sub">${windCardinal}</span></span>
+                    </div>
+                    <div class="card-sub-text">🧭 दिशा: ${windCardinal} (${Math.round(windDir)}°)</div>
+                    <div class="detail-panel" id="wind-detail">💨 गति: ${windSpeed.toFixed(1)} km/h\n🧭 दिशा: ${windCardinal} (${Math.round(windDir)}°)</div>
+                </div>
+
+                <!-- Rain Card (with Duration) -->
+                <div class="card" onclick="toggleDetail(this, 'rain-detail')">
+                    <div class="card-row">
+                        <span class="card-label"><span class="emoji">☔</span> वर्षा टाइमर</span>
+                        <span class="card-value">${rainStartInfo ? rainDisplay : '☀️ साफ़'}</span>
+                    </div>
+                    ${rainStartInfo ? `
+                        <div class="card-sub-text">
+                            🌧️ पहली बूंद: ${rainStartInfo.time.toLocaleString('hi-IN', { hour: '2-digit', minute: '2-digit' })}
+                            ${rainDuration ? ` · अवधि: ${formatMinutes(rainDuration)}` : ''}
+                            <span class="prob-badge">🎯 ${rainProb}% संभावना</span>
+                        </div>
+                        ${rainDuration ? `<div class="card-sub-text" style="opacity:0.7;">☔ अंतिम बूंद: ${rainEndInfo ? rainEndInfo.time.toLocaleString('hi-IN', { hour: '2-digit', minute: '2-digit' }) : 'अज्ञात'}</div>` : ''}
+                    ` : `<div class="card-sub-text">अगले 48 घंटों में कोई बारिश नहीं</div>`}
+                    <div class="detail-panel" id="rain-detail">${rainStartInfo ? `
+                        🌧️ पहली बूंद: ${rainStartInfo.time.toLocaleString('hi-IN')}
+                        ⏱️ ${formatCountdown(rainSec)} बचा
+                        ${rainDuration ? `☔ अवधि: ${formatMinutes(rainDuration)} (${Math.round(rainDuration/60)} मिनट)` : ''}
+                        ${rainEndInfo ? `🌧️ अंतिम बूंद: ${rainEndInfo.time.toLocaleString('hi-IN')}` : ''}
+                        📊 संभावना: ${rainProb}%
+                        📈 स्रोत: Open-Meteo Ensemble (51 मॉडल)
+                    ` : '☀️ 48 घंटे शुष्क रहेंगे'}</div>
+                </div>
+
+                <!-- Sun Card -->
+                <div class="card" onclick="toggleDetail(this, 'sun-detail')">
+                    <div class="card-row">
+                        <span class="card-label"><span class="emoji">${sunTimer.type === '🌅 सूर्योदय' ? '🌅' : '🌇'}</span> ${sunTimer.type}</span>
+                        <span class="card-value">${formatCountdown(sunTimer.seconds)} <span class="sub">बचा</span></span>
+                    </div>
+                    <div class="card-sub-text">☀️ उदय: ${daily.sunrise[0].slice(11,16)} · 🌇 अस्त: ${daily.sunset[0].slice(11,16)}</div>
+                    <div class="detail-panel" id="sun-detail">🌅 अगला: ${sunTimer.type}\n⏱️ ${formatCountdown(sunTimer.seconds)} शेष\n🕒 लक्ष्य: ${sunTimer.target ? sunTimer.target.toLocaleString('hi-IN') : 'N/A'}</div>
+                </div>
+
+                <!-- Moon Card -->
+                <div class="card" onclick="toggleDetail(this, 'moon-detail')">
+                    <div class="card-row">
+                        <span class="card-label"><span class="emoji">🌙</span> चंद्र टाइमर</span>
+                        <span class="card-value">${isFinite(moonTimer.seconds) ? formatCountdown(moonTimer.seconds) : '—'} <span class="sub">बचा</span></span>
+                    </div>
+                    <div class="card-sub-text">${moonTimer.type} · ${moonTimer.target ? moonTimer.target.toLocaleString('hi-IN', { hour: '2-digit', minute: '2-digit' }) : 'डेटा नहीं'}</div>
+                    <div class="detail-panel" id="moon-detail">🌙 घटना: ${moonTimer.type}\n⏱️ ${isFinite(moonTimer.seconds) ? formatCountdown(moonTimer.seconds) : '∞'} शेष\n🕒 ${moonTimer.target ? moonTimer.target.toLocaleString('hi-IN') : 'अनुपलब्ध'}</div>
+                </div>
+
+                <!-- Humidity & Cloud -->
+                <div class="card" onclick="toggleDetail(this, 'extra-detail')">
+                    <div class="card-row">
+                        <span class="card-label"><span class="emoji">💧</span> आर्द्रता / बादल</span>
+                        <span class="card-value">${Math.round(humidity)}% <span class="sub">☁️ ${Math.round(clouds)}%</span></span>
+                    </div>
+                    <div class="card-sub-text">नमी: ${Math.round(humidity)}% · बादल: ${Math.round(clouds)}%</div>
+                    <div class="detail-panel" id="extra-detail">💧 आर्द्रता: ${humidity}%\n☁️ बादल: ${clouds}%</div>
+                </div>
+
+                <!-- Pressure Card -->
+                <div class="card" onclick="toggleDetail(this, 'pressure-detail')">
+                    <div class="card-row">
+                        <span class="card-label"><span class="emoji">📊</span> हवा का दबाव</span>
+                        <span class="card-value">${currentExtra.pressure_msl ? currentExtra.pressure_msl.toFixed(1) : '—'} hPa</span>
+                    </div>
+                    <div class="card-sub-text">${lastPressure ? `पिछला: ${lastPressure.toFixed(1)} hPa` : 'बैरोमीटर सक्रिय'}</div>
+                    <div class="detail-panel" id="pressure-detail">📊 दबाव: ${currentExtra.pressure_msl ? currentExtra.pressure_msl.toFixed(1) : 'अनुपलब्ध'} hPa\n${lastPressure ? `पिछला रीडिंग: ${lastPressure.toFixed(1)} hPa` : ''}\n⚡ 2+ hPa गिरावट = तूफ़ान संभावना</div>
+                </div>
+            `;
+
+            // Store for countdown ticker
+            window._rainSec = rainSec;
+            window._rainTime = rainStartInfo ? rainStartInfo.time : null;
+            window._sunSec = sunTimer.seconds;
+            window._sunTarget = sunTimer.target;
+            window._moonSec = moonTimer.seconds;
+            window._moonTarget = moonTimer.target;
+        }
+
+        // ============================================================
+        //  9. COUNTDOWN TICKER (Updates every second)
+        // ============================================================
+        function startCountdown() {
+            if (countdownInterval) clearInterval(countdownInterval);
+            countdownInterval = setInterval(() => {
+                const now = new Date();
+                const cards = document.querySelectorAll('.card');
+                if (cards.length < 7) return;
+
+                // Rain (index 3)
+                if (window._rainTime) {
+                    const diff = (window._rainTime - now) / 1000;
+                    const rainCard = cards[3];
+                    if (rainCard && diff > 0) {
+                        const val = rainCard.querySelector('.card-value');
+                        if (val) val.innerHTML = `⏳ ${formatCountdown(diff)}`;
+                    } else if (rainCard) {
+                        const val = rainCard.querySelector('.card-value');
+                        if (val) val.innerHTML = '🌧️ बारिश हो रही!';
+                    }
+                }
+
+                // Sun (index 4)
+                if (window._sunTarget) {
+                    const diff = (window._sunTarget - now) / 1000;
+                    const sunCard = cards[4];
+                    if (sunCard && diff > 0) {
+                        const val = sunCard.querySelector('.card-value');
+                        if (val) val.innerHTML = `${formatCountdown(diff)} <span class="sub">बचा</span>`;
+                    }
+                }
+
+                // Moon (index 5)
+                if (window._moonTarget && isFinite(window._moonSec)) {
+                    const diff = (window._moonTarget - now) / 1000;
+                    const moonCard = cards[5];
+                    if (moonCard && diff > 0) {
+                        const val = moonCard.querySelector('.card-value');
+                        if (val) val.innerHTML = `${formatCountdown(diff)} <span class="sub">बचा</span>`;
+                    }
+                }
+            }, 1000);
+        }
+
+        // ============================================================
+        //  10. TOGGLE DETAIL
+        // ============================================================
+        function toggleDetail(card, id) {
+            const panel = document.getElementById(id);
+            if (!panel) return;
+            const isOpen = panel.classList.contains('open');
+            document.querySelectorAll('.detail-panel').forEach(p => p.classList.remove('open'));
+            if (!isOpen) panel.classList.add('open');
+        }
+        window.toggleDetail = toggleDetail;
+
+        // ============================================================
+        //  11. SEARCH, HOME, REFRESH
+        // ============================================================
+        async function handleSearch() {
+            const query = searchInput.value.trim();
+            if (!query) return;
+            try {
+                const result = await geocode(query);
+                const name = result.name || query;
+                await loadData(result.latitude, result.longitude, name);
+                isHomeMode = false;
+                searchInput.value = '';
+            } catch (err) {
+                alert(`❌ त्रुटि: ${err.message}`);
+            }
+        }
+
+        function handleRefresh() {
+            if (isHomeMode) {
+                getLocationAndFetch();
+            } else {
+                loadData(currentLat, currentLon, currentCity);
+            }
+            lastPressure = null;
+            pressureDropStart = null;
+            stormAlert.classList.remove('active');
+        }
+
+        function handleHome() {
+            isHomeMode = true;
+            getLocationAndFetch();
+        }
+
+        function getLocationAndFetch() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        const { latitude, longitude } = pos.coords;
+                        loadData(latitude, longitude, null);
+                    },
+                    (err) => {
+                        console.warn('GPS fallback:', err);
+                        loadData(28.6139, 77.2090, 'दिल्ली (डिफ़ॉल्ट)');
+                    }, { enableHighAccuracy: true, timeout: 8000 }
+                );
+            } else {
+                loadData(28.6139, 77.2090, 'दिल्ली (डिफ़ॉल्ट)');
+            }
+        }
+
+        // --- Event Listeners ---
+        searchBtn.addEventListener('click', handleSearch);
+        searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleSearch(); });
+        refreshBtn.addEventListener('click', handleRefresh);
+        homeBtn.addEventListener('click', handleHome);
+
+        // --- Auto Refresh every 15 minutes ---
+        setInterval(() => {
+            if (isHomeMode) {
+                getLocationAndFetch();
+            } else {
+                loadData(currentLat, currentLon, currentCity);
+            }
+        }, 15 * 60 * 1000);
+
+        // --- Start ---
+        renderSavedChips();
+        initBarometer();
+        getLocationAndFetch();
+    </script>
+</body>
+</html>
