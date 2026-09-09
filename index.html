@@ -8,16 +8,18 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <style>
-        /* ===== RESET & BASE ===== */
+        /* ===== FULL SCREEN RESET ===== */
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
+        html, body {
+            width: 100%;
+            min-height: 100vh;
             font-family: 'Segoe UI', system-ui, sans-serif;
             background: linear-gradient(145deg, #0b1a2e, #1a2f44);
-            min-height: 100vh;
-            padding: 12px;
             color: #fff;
+            padding: 12px;
+            overflow-x: hidden;
         }
-        .container { max-width: 520px; margin: 0 auto; }
+        .container { max-width: 600px; margin: 0 auto; width: 100%; }
 
         /* ===== TOP BAR ===== */
         .top-bar {
@@ -64,7 +66,7 @@
         .welcome-banner .text .small { font-size: 0.7rem; opacity: 0.6; }
 
         /* ===== MAP ===== */
-        #interactiveMap { height: 280px; border-radius: 16px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.04); z-index: 1; }
+        #interactiveMap { height: 300px; border-radius: 16px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.04); z-index: 1; }
         .leaflet-control-attribution { font-size: 8px !important; background: rgba(0,0,0,0.5) !important; color: #aaa !important; }
         .leaflet-control-layers { background: rgba(0,0,0,0.7) !important; border-radius: 8px !important; color: #fff !important; }
         .leaflet-control-layers label { color: #fff !important; }
@@ -251,7 +253,7 @@
             .card-label { font-size: 0.8rem; }
             .top-bar input { font-size: 0.8rem; }
             .top-bar button { font-size: 0.7rem; padding: 4px 8px; }
-            #interactiveMap { height: 200px; }
+            #interactiveMap { height: 220px; }
             .alert-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
             .manual-coords input { width: 55px; font-size: 0.7rem; }
             .drawer { width: 240px; }
@@ -397,14 +399,15 @@
         </div>
     </div>
 
-    <div class="footer">🔁 हर 15 मिनट में अपडेट · Open-Meteo + USGS + GDACS · v6.0 (ग्लोबल)</div>
+    <div class="footer">🔁 हर 15 मिनट में अपडेट · Open-Meteo + USGS + GDACS · v7.0 (फाइनल)</div>
 </div>
+
 <!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
 // ============================================================
-// FIREBASE CONFIG (YOUR REAL CONFIG)
+// FIREBASE CONFIG (YOUR CONFIG)
 // ============================================================
 const firebaseConfig = {
     apiKey: "AIzaSyCwcG7s1j1SFJbDOh8FBsEpc6YWv39qX9k",
@@ -544,7 +547,6 @@ function logoutUser() {
 // DRAWER LOGIN/LOGOUT LOGIC
 // ============================================================
 function updateDrawerLoginState() {
-    // Remove existing login/logout items (if any)
     const existingLogin = document.querySelector('.drawer .menu-item.login-item');
     const existingLogout = document.querySelector('.drawer .menu-item.danger');
     if (existingLogin) existingLogin.remove();
@@ -888,37 +890,44 @@ function updateMap(lat, lon) {
 // ============================================================
 // WEATHER FUNCTIONS
 // ============================================================
-const WORKER_URL = 'https://shrill-mud-304e.umadivy500.workers.dev/weather';
-
+// Primary: Direct Open-Meteo API (No Worker dependency)
 async function fetchWeather(lat, lon) {
-    const workerUrl = `${WORKER_URL}?lat=${lat}&lon=${lon}`;
+    const params = new URLSearchParams({
+        latitude: lat,
+        longitude: lon,
+        current_weather: true,
+        hourly: 'precipitation',
+        daily: 'sunrise,sunset,moonrise,moonset,uv_index_max,shortwave_radiation_sum',
+        timezone: 'Asia/Kolkata',
+        forecast_days: 2,
+        past_days: 0,
+        current: 'temperature_2m,relative_humidity_2m,apparent_temperature,cloud_cover,wind_speed_10m,wind_direction_10m,pressure_msl,uv_index'
+    });
+    const directUrl = `https://api.open-meteo.com/v1/forecast?${params}`;
     try {
-        const res = await fetch(workerUrl);
-        if (res.ok) return await res.json();
-        throw new Error('Worker failed, falling back');
+        const res = await fetch(directUrl);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
     } catch (e) {
-        const params = new URLSearchParams({
-            latitude: lat, longitude: lon,
-            current_weather: true,
-            hourly: 'precipitation',
-            daily: 'sunrise,sunset,moonrise,moonset,uv_index_max,shortwave_radiation_sum',
-            timezone: 'Asia/Kolkata',
-            forecast_days: 2,
-            past_days: 0,
-            current: 'temperature_2m,relative_humidity_2m,apparent_temperature,cloud_cover,wind_speed_10m,wind_direction_10m,pressure_msl,uv_index'
-        });
-        const directUrl = `https://api.open-meteo.com/v1/forecast?${params}`;
-        const directRes = await fetch(directUrl);
-        if (!directRes.ok) throw new Error(`Open-Meteo HTTP ${directRes.status}`);
-        return await directRes.json();
+        console.warn('Direct Open-Meteo failed, trying worker fallback:', e);
+        // Fallback to worker (if you have it)
+        const workerUrl = `https://shrill-mud-304e.umadivy500.workers.dev/weather?lat=${lat}&lon=${lon}`;
+        const workerRes = await fetch(workerUrl);
+        if (!workerRes.ok) throw new Error(`Worker HTTP ${workerRes.status}`);
+        return await workerRes.json();
     }
 }
 
 async function fetchAQI(lat, lon) {
-    const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=pm10,pm2_5&timezone=Asia/Kolkata`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`AQI HTTP ${res.status}`);
-    return await res.json();
+    try {
+        const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=pm10,pm2_5&timezone=Asia/Kolkata`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`AQI HTTP ${res.status}`);
+        return await res.json();
+    } catch (e) {
+        console.warn('AQI fetch failed, continuing without AQI:', e);
+        return null; // gracefully fail
+    }
 }
 async function reverseGeocode(lat, lon) {
     try {
@@ -1096,6 +1105,7 @@ function getSunCategory(uv, temp) {
 // LOAD WEATHER DATA
 // ============================================================
 function loadWeatherData(lat, lon, cityName) {
+    console.log('🌍 loadWeatherData called with:', lat, lon, cityName);
     if (lat === undefined) {
         const cached = localStorage.getItem('weather_cached_location');
         if (cached) {
@@ -1105,6 +1115,7 @@ function loadWeatherData(lat, lon, cityName) {
                     lat = c.lat;
                     lon = c.lon;
                     cityName = c.city || 'पिछला स्थान';
+                    console.log('📦 Using cached location:', lat, lon);
                 }
             } catch(e) {}
         }
@@ -1112,13 +1123,16 @@ function loadWeatherData(lat, lon, cityName) {
             lat = 28.6139;
             lon = 77.2090;
             cityName = 'दिल्ली (प्रारंभिक)';
+            console.log('📍 Using default Delhi');
         }
+        // Try GPS in background (non‑blocking)
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
                     const newLat = pos.coords.latitude;
                     const newLon = pos.coords.longitude;
                     if (Math.abs(newLat - currentLat) > 0.01 || Math.abs(newLon - currentLon) > 0.01) {
+                        console.log('📍 GPS updated:', newLat, newLon);
                         reverseGeocode(newLat, newLon).then(name => {
                             const city = name || 'आपका स्थान';
                             localStorage.setItem('weather_cached_location', JSON.stringify({ lat: newLat, lon: newLon, city }));
@@ -1128,7 +1142,7 @@ function loadWeatherData(lat, lon, cityName) {
                         });
                     }
                 },
-                () => {},
+                (err) => { console.warn('GPS error:', err.message); },
                 { timeout: 3000, enableHighAccuracy: false }
             );
         }
@@ -1149,6 +1163,7 @@ function loadWeatherData(lat, lon, cityName) {
 
     Promise.all([fetchWeather(lat, lon), fetchAQI(lat, lon)])
         .then(([weather, aqi]) => {
+            console.log('✅ Weather & AQI fetched successfully');
             renderUI(weather, aqi);
             renderSolar(weather);
             startCountdown();
@@ -1156,14 +1171,16 @@ function loadWeatherData(lat, lon, cityName) {
             checkAllAlerts(lat, lon);
         })
         .catch(err => {
+            console.error('❌ Load error:', err);
             content.innerHTML = `<div class="error">❌ त्रुटि: ${err.message}<br><small>कृपया पुनः प्रयास करें</small></div>`;
         });
 }
 
 // ============================================================
-// RENDER UI (FULL VERSION)
+// RENDER UI
 // ============================================================
 function renderUI(weather, aqi) {
+    console.log('🖥️ renderUI started');
     const now = new Date();
     const current = weather.current_weather;
     const daily = weather.daily;
@@ -1179,9 +1196,13 @@ function renderUI(weather, aqi) {
     const windDir = current.wind_direction || 0;
     const windCardinal = getCardinal(windDir);
 
-    const pm25 = aqi?.current?.pm2_5 || 0;
-    const pm10 = aqi?.current?.pm10 || 0;
-    const aqiInfo = getAQILevel(pm25);
+    let aqiInfo = { label: '--', color: '#aaa' };
+    let pm25 = 0, pm10 = 0;
+    if (aqi && aqi.current) {
+        pm25 = aqi.current.pm2_5 || 0;
+        pm10 = aqi.current.pm10 || 0;
+        aqiInfo = getAQILevel(pm25);
+    }
 
     let rainStartInfo = null, rainEndInfo = null, rainDuration = null, maxRain = 0;
     let firstIdx = -1, lastIdx = -1;
@@ -1349,6 +1370,7 @@ function renderUI(weather, aqi) {
     window._sunTarget = sunTimer.target;
     window._moonSec = moonTimer.seconds;
     window._moonTarget = moonTimer.target;
+    console.log('✅ renderUI completed');
 }
 
 // ============================================================
@@ -1529,17 +1551,19 @@ document.getElementById('manualGoBtn').addEventListener('click', function() {
 // ============================================================
 // INIT
 // ============================================================
-// If user data exists, show welcome banner; otherwise, just load weather
 if (loadUserData()) {
     updateUIForUser();
 } else {
     welcomeBanner.style.display = 'none';
 }
-// Always load weather data directly
+// Always load weather
 loadWeatherData();
 renderSavedChips();
 initBarometer();
-initMap(28.6139, 77.2090);
+// Init map after a short delay to ensure the container is ready
+setTimeout(() => {
+    initMap(28.6139, 77.2090);
+}, 500);
 
 // Auto refresh every 15 minutes
 setInterval(() => {
@@ -1547,9 +1571,9 @@ setInterval(() => {
         loadWeatherData(currentLat, currentLon, currentCity);
         checkAllAlerts(currentLat, currentLon);
     }
-}, 15*60*1000);
+}, 15 * 60 * 1000);
 
-console.log('🌦️ मौसम टाइमर v6.0 – ग्लोबल रेडी');
+console.log('🌦️ मौसम टाइमर v7.0 – फाइनल रिलीज़');
 </script>
 </body>
 </html>
