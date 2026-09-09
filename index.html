@@ -144,7 +144,7 @@
         .aqi-badge { padding: 2px 10px; border-radius: 30px; font-size: 0.6rem; font-weight: 600; background: #22c55e; color: #000; }
         .prob-badge { font-size: 0.65rem; padding: 2px 10px; border-radius: 20px; background: rgba(255,255,255,0.08); color: #93c5fd; }
 
-        /* ===== LOGIN OVERLAY ===== */
+        /* ===== LOGIN OVERLAY (hidden by default) ===== */
         .login-overlay {
             display: none;
             position: fixed;
@@ -212,6 +212,7 @@
         .login-box .user-info { text-align: center; padding: 10px 0; color: #4ade80; }
         .login-box .logout-btn { background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.2); color: #fca5a5; padding: 8px 16px; border-radius: 30px; cursor: pointer; font-size: 0.8rem; margin-top: 10px; display: inline-block; }
 
+        /* ===== DRAWER ===== */
         .drawer-overlay {
             display: none;
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -261,7 +262,7 @@
 
 <div class="container">
 
-    <!-- ===== LOGIN OVERLAY ===== -->
+    <!-- ===== LOGIN OVERLAY (hidden initially) ===== -->
     <div class="login-overlay" id="loginOverlay">
         <div class="login-box">
             <h2>🔐 लॉगिन / साइनअप</h2>
@@ -366,7 +367,7 @@
 
     <!-- Weather Cards -->
     <div id="content">
-        <div class="loading">⏳ लॉगिन करें और मौसम देखें</div>
+        <div class="loading">⏳ मौसम डेटा लोड हो रहा है...</div>
     </div>
 
     <!-- Solar & Light -->
@@ -490,7 +491,6 @@ function saveUserData(name, phone, photo, password) {
     isLoggedIn = true;
     updateUIForUser();
     loginOverlay.classList.remove('active');
-    loadWeatherData();
 }
 
 function updateUIForUser() {
@@ -504,9 +504,10 @@ function updateUIForUser() {
         welcomeSub.textContent = `📍 ${currentCity} · अब अपडेट हो रहा है`;
         welcomeBanner.style.display = 'flex';
         loginOverlay.classList.remove('active');
+        updateDrawerLoginState();
     } else {
         welcomeBanner.style.display = 'none';
-        loginOverlay.classList.add('active');
+        updateDrawerLoginState();
     }
 }
 
@@ -519,9 +520,9 @@ function logoutUser() {
     drawerPhone.textContent = '--';
     welcomeBanner.style.display = 'none';
     drawerOverlay.classList.remove('active');
-    loginOverlay.classList.add('active');
-    content.innerHTML = '<div class="loading">⏳ लॉगिन करें और मौसम देखें</div>';
-    solarContent.innerHTML = '';
+    loginOverlay.classList.remove('active');
+    updateDrawerLoginState();
+    // Reset login UI
     phoneSection.style.display = 'block';
     localSection.style.display = 'none';
     tabPhone.classList.add('active');
@@ -540,7 +541,86 @@ function logoutUser() {
 }
 
 // ============================================================
-// TAB SWITCHING
+// DRAWER LOGIN/LOGOUT LOGIC
+// ============================================================
+function updateDrawerLoginState() {
+    // Remove existing login/logout items (if any)
+    const existingLogin = document.querySelector('.drawer .menu-item.login-item');
+    const existingLogout = document.querySelector('.drawer .menu-item.danger');
+    if (existingLogin) existingLogin.remove();
+    if (existingLogout) existingLogout.remove();
+    const drawer = document.querySelector('.drawer');
+    const menuItems = drawer.querySelectorAll('.menu-item');
+    const lastMenuItem = menuItems[menuItems.length - 1];
+    if (isLoggedIn) {
+        const logoutItem = document.createElement('div');
+        logoutItem.className = 'menu-item danger';
+        logoutItem.innerHTML = `<span class="icon">🚪</span> लॉगआउट`;
+        logoutItem.onclick = function() {
+            drawerOverlay.classList.remove('active');
+            if (confirm('क्या आप लॉगआउट करना चाहते हैं?')) logoutUser();
+        };
+        drawer.insertBefore(logoutItem, lastMenuItem);
+    } else {
+        const loginItem = document.createElement('div');
+        loginItem.className = 'menu-item login-item';
+        loginItem.innerHTML = `<span class="icon">🔐</span> लॉगिन`;
+        loginItem.onclick = function() {
+            drawerOverlay.classList.remove('active');
+            loginOverlay.classList.add('active');
+        };
+        drawer.insertBefore(loginItem, lastMenuItem);
+    }
+}
+
+menuBtn.onclick = function() {
+    if (userData) {
+        drawerAvatar.src = userData.photo || '';
+        drawerName.textContent = userData.name || 'अतिथि';
+        drawerPhone.textContent = userData.phone || '--';
+    } else {
+        drawerAvatar.src = '';
+        drawerName.textContent = 'अतिथि';
+        drawerPhone.textContent = '--';
+    }
+    updateDrawerLoginState();
+    drawerOverlay.classList.add('active');
+};
+closeDrawerBtn.onclick = function() { drawerOverlay.classList.remove('active'); };
+drawerOverlay.addEventListener('click', function(e) {
+    if (e.target === drawerOverlay) drawerOverlay.classList.remove('active');
+});
+
+// Existing drawer menu items
+document.querySelector('.drawer .menu-item:nth-child(3)').addEventListener('click', function() {
+    drawerOverlay.classList.remove('active');
+    if (navigator.share) {
+        navigator.share({ title: '🌦️ मौसम टाइमर', text: 'अपने क्षेत्र का मौसम और आपदा चेतावनियाँ पाएं।', url: window.location.href }).catch(() => {});
+    } else {
+        alert('📤 URL कॉपी करें: ' + window.location.href);
+    }
+});
+
+document.querySelector('.drawer .menu-item:nth-child(2)').addEventListener('click', function() {
+    drawerOverlay.classList.remove('active');
+    if (isLoggedIn) {
+        localNameInput.value = userData.name || '';
+        localPasswordInput.value = userData.password || '';
+        if (userData.photo) {
+            avatarPreview.src = userData.photo;
+            avatarPreview.style.display = 'block';
+        }
+        tabLocal.click();
+        loginOverlay.classList.add('active');
+        localStatus.textContent = 'अपना विवरण अपडेट करें और स्थानीय लॉगिन बटन दबाएं।';
+        localStatus.style.color = '#93c5fd';
+    } else {
+        loginOverlay.classList.add('active');
+    }
+});
+
+// ============================================================
+// TAB SWITCHING (Phone / Local)
 // ============================================================
 tabPhone.onclick = function() {
     tabPhone.classList.add('active'); tabLocal.classList.remove('active');
@@ -619,6 +699,8 @@ verifyOtpBtn.onclick = function() {
                 const photo = avatarPreview.src || '';
                 saveUserData(name, phone, photo, '');
                 confirmationResult = null;
+                loginOverlay.classList.remove('active');
+                updateUIForUser();
             })
             .catch(err => {
                 loginStatus.textContent = '❌ ' + err.message;
@@ -655,7 +737,6 @@ localLoginBtn.onclick = function() {
                 isLoggedIn = true;
                 updateUIForUser();
                 loginOverlay.classList.remove('active');
-                loadWeatherData();
                 localStatus.textContent = '✅ स्थानीय लॉगिन सफल!';
                 localStatus.style.color = '#4ade80';
                 return;
@@ -671,7 +752,8 @@ localLoginBtn.onclick = function() {
     saveUserData(name, '', photo, password);
     localStatus.textContent = '✅ नया स्थानीय उपयोगकर्ता बनाया गया!';
     localStatus.style.color = '#4ade80';
-    loadWeatherData();
+    loginOverlay.classList.remove('active');
+    updateUIForUser();
 };
 
 photoInput.addEventListener('change', function(e) {
@@ -683,54 +765,6 @@ photoInput.addEventListener('change', function(e) {
             avatarPreview.style.display = 'block';
         };
         reader.readAsDataURL(file);
-    }
-});
-
-// ============================================================
-// DRAWER
-// ============================================================
-menuBtn.onclick = function() {
-    if (userData) {
-        drawerAvatar.src = userData.photo || '';
-        drawerName.textContent = userData.name || 'अतिथि';
-        drawerPhone.textContent = userData.phone || '--';
-    }
-    drawerOverlay.classList.add('active');
-};
-closeDrawerBtn.onclick = function() { drawerOverlay.classList.remove('active'); };
-drawerOverlay.addEventListener('click', function(e) {
-    if (e.target === drawerOverlay) drawerOverlay.classList.remove('active');
-});
-
-document.querySelector('.drawer .menu-item.danger').addEventListener('click', function() {
-    drawerOverlay.classList.remove('active');
-    if (confirm('क्या आप लॉगआउट करना चाहते हैं?')) logoutUser();
-});
-
-document.querySelector('.drawer .menu-item:nth-child(3)').addEventListener('click', function() {
-    drawerOverlay.classList.remove('active');
-    if (navigator.share) {
-        navigator.share({ title: '🌦️ मौसम टाइमर', text: 'अपने क्षेत्र का मौसम और आपदा चेतावनियाँ पाएं।', url: window.location.href }).catch(() => {});
-    } else {
-        alert('📤 URL कॉपी करें: ' + window.location.href);
-    }
-});
-
-document.querySelector('.drawer .menu-item:nth-child(2)').addEventListener('click', function() {
-    drawerOverlay.classList.remove('active');
-    if (isLoggedIn) {
-        localNameInput.value = userData.name || '';
-        localPasswordInput.value = userData.password || '';
-        if (userData.photo) {
-            avatarPreview.src = userData.photo;
-            avatarPreview.style.display = 'block';
-        }
-        tabLocal.click();
-        loginOverlay.classList.add('active');
-        localStatus.textContent = 'अपना विवरण अपडेट करें और स्थानीय लॉगिन बटन दबाएं।';
-        localStatus.style.color = '#93c5fd';
-    } else {
-        loginOverlay.classList.add('active');
     }
 });
 
@@ -854,7 +888,6 @@ function updateMap(lat, lon) {
 // ============================================================
 // WEATHER FUNCTIONS
 // ============================================================
-// ---- IMPORTANT: Replace YOUR_WORKER_URL with your Cloudflare Worker URL ----
 const WORKER_URL = 'https://shrill-mud-304e.umadivy500.workers.dev/weather';
 
 async function fetchWeather(lat, lon) {
@@ -864,7 +897,6 @@ async function fetchWeather(lat, lon) {
         if (res.ok) return await res.json();
         throw new Error('Worker failed, falling back');
     } catch (e) {
-        // Fallback to Open-Meteo directly
         const params = new URLSearchParams({
             latitude: lat, longitude: lon,
             current_weather: true,
@@ -1129,7 +1161,7 @@ function loadWeatherData(lat, lon, cityName) {
 }
 
 // ============================================================
-// RENDER UI
+// RENDER UI (FULL VERSION)
 // ============================================================
 function renderUI(weather, aqi) {
     const now = new Date();
@@ -1389,7 +1421,10 @@ function startCountdown() {
         }
     }, 1000);
 }
-// ===== BAROMETER / STORM DETECTION =====
+
+// ============================================================
+// BAROMETER / STORM DETECTION
+// ============================================================
 function checkPressureDrop(pressure) {
     if (!pressure || pressure <= 0) return;
     if (lastPressure !== null) {
@@ -1494,15 +1529,16 @@ document.getElementById('manualGoBtn').addEventListener('click', function() {
 // ============================================================
 // INIT
 // ============================================================
+// If user data exists, show welcome banner; otherwise, just load weather
 if (loadUserData()) {
     updateUIForUser();
-    loadWeatherData();
 } else {
-    loginOverlay.classList.add('active');
-    content.innerHTML = '<div class="loading">⏳ लॉगिन करें और मौसम देखें</div>';
+    welcomeBanner.style.display = 'none';
 }
+// Always load weather data directly
+loadWeatherData();
 renderSavedChips();
-initBarometer();      // <--- ADD THIS LINE
+initBarometer();
 initMap(28.6139, 77.2090);
 
 // Auto refresh every 15 minutes
