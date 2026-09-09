@@ -3,16 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🌦️ मौसम टाइमर – पूर्ण आपदा चेतावनी</title>
+    <title>🌦️ मौसम टाइमर – रियल OTP लॉगिन</title>
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js">
+    </script>
     <style>
+        /* ===== RESET & BASE ===== */
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
         }
         body {
-            font-family: 'Segoe UI', 'Noto Sans Devanagari', system-ui, sans-serif;
+            font-family: 'Segoe UI', system-ui, sans-serif;
             background: linear-gradient(145deg, #0b1a2e, #1a2f44);
             min-height: 100vh;
             padding: 12px;
@@ -21,7 +28,10 @@
         .container {
             max-width: 520px;
             margin: 0 auto;
+            position: relative;
         }
+
+        /* ===== TOP BAR ===== */
         .top-bar {
             display: flex;
             gap: 5px;
@@ -69,12 +79,18 @@
         .top-bar .home-btn {
             background: rgba(59, 130, 246, 0.25);
         }
+        .top-bar .menu-btn {
+            background: rgba(255, 255, 255, 0.05);
+            font-size: 1.2rem;
+            padding: 0 8px;
+        }
+
+        /* ===== SAVED CHIPS ===== */
         .saved-chips {
             display: flex;
             flex-wrap: wrap;
             gap: 5px;
             margin-bottom: 8px;
-            padding: 2px 0;
         }
         .saved-chips span {
             background: rgba(255, 255, 255, 0.07);
@@ -93,21 +109,54 @@
             background: rgba(34, 197, 94, 0.15);
             border-color: rgba(34, 197, 94, 0.2);
         }
+
+        /* ===== LOCATION & WELCOME ===== */
         .location-badge {
             text-align: center;
             font-size: 1rem;
             font-weight: 500;
             padding: 4px 0 10px;
             opacity: 0.9;
-            letter-spacing: 0.3px;
         }
         .location-badge small {
             opacity: 0.5;
             font-size: 0.65rem;
             display: block;
         }
+        .welcome-banner {
+            background: rgba(59, 130, 246, 0.08);
+            border: 1px solid rgba(59, 130, 246, 0.1);
+            border-radius: 16px;
+            padding: 10px 16px;
+            margin-bottom: 12px;
+            display: none;
+            align-items: center;
+            gap: 12px;
+        }
+        .welcome-banner .avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #1a2f44;
+            border: 2px solid rgba(59, 130, 246, 0.3);
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+        .welcome-banner .text {
+            font-size: 0.85rem;
+            line-height: 1.4;
+        }
+        .welcome-banner .text strong {
+            color: #93c5fd;
+        }
+        .welcome-banner .text .small {
+            font-size: 0.7rem;
+            opacity: 0.6;
+        }
+
+        /* ===== MAP (BIGGER) ===== */
         #interactiveMap {
-            height: 220px;
+            height: 300px;
             border-radius: 16px;
             margin-bottom: 12px;
             border: 1px solid rgba(255, 255, 255, 0.04);
@@ -118,10 +167,16 @@
             background: rgba(0, 0, 0, 0.5) !important;
             color: #aaa !important;
         }
-        .leaflet-popup-content {
-            color: #000;
-            font-size: 12px;
+        .leaflet-control-layers {
+            background: rgba(0, 0, 0, 0.7) !important;
+            border-radius: 8px !important;
+            color: #fff !important;
         }
+        .leaflet-control-layers label {
+            color: #fff !important;
+        }
+
+        /* ===== CARDS ===== */
         .card-grid {
             display: flex;
             flex-direction: column;
@@ -133,9 +188,9 @@
             border-radius: 18px;
             padding: 14px 16px;
             border: 1px solid rgba(255, 255, 255, 0.04);
-            transition: 0.3s ease;
             cursor: pointer;
             box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+            transition: 0.3s;
         }
         .card:active {
             transform: scale(0.98);
@@ -193,47 +248,18 @@
             padding: 8px 12px;
             margin-top: 10px;
             font-size: 0.65rem;
-            font-family: 'Courier New', monospace;
+            font-family: monospace;
             white-space: pre-wrap;
-            word-break: break-all;
             max-height: 160px;
             overflow-y: auto;
             display: none;
             color: #a5d8ff;
-            border: 1px solid rgba(255, 255, 255, 0.03);
         }
         .detail-panel.open {
             display: block;
         }
-        .footer {
-            text-align: center;
-            margin-top: 24px;
-            font-size: 0.6rem;
-            opacity: 0.3;
-            padding-bottom: 16px;
-        }
-        .loading {
-            text-align: center;
-            padding: 40px 0;
-            font-size: 1rem;
-            opacity: 0.7;
-        }
-        .error {
-            background: rgba(239, 68, 68, 0.12);
-            border: 1px solid rgba(239, 68, 68, 0.2);
-            border-radius: 14px;
-            padding: 14px;
-            text-align: center;
-            color: #fca5a5;
-        }
-        .aqi-badge {
-            padding: 2px 10px;
-            border-radius: 30px;
-            font-size: 0.6rem;
-            font-weight: 600;
-            background: #22c55e;
-            color: #000;
-        }
+
+        /* ===== ALERTS ===== */
         .storm-alert {
             background: rgba(239, 68, 68, 0.15);
             border: 1px solid rgba(239, 68, 68, 0.25);
@@ -277,43 +303,178 @@
         .critical-alert.active {
             display: block;
         }
-        .alert-container {
-            background: rgba(255, 255, 255, 0.04);
-            border-radius: 16px;
-            padding: 12px 16px;
+
+        /* ===== ALERT GRID ===== */
+        .alert-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
             margin-bottom: 14px;
-            border: 1px solid rgba(255, 255, 255, 0.04);
-            max-height: 200px;
-            overflow-y: auto;
         }
-        .alert-container .alert-title {
-            font-weight: 500;
-            margin-bottom: 8px;
-            font-size: 0.9rem;
+        .alert-category {
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 14px;
+            padding: 10px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            text-align: center;
+            transition: 0.3s;
         }
-        .alert-item {
-            font-size: 0.75rem;
-            padding: 4px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-            opacity: 0.85;
+        .alert-category .alert-icon {
+            font-size: 1.8rem;
         }
-        .alert-item:last-child {
-            border-bottom: none;
-        }
-        .prob-badge {
+        .alert-category .alert-name {
             font-size: 0.65rem;
-            padding: 2px 10px;
-            border-radius: 20px;
-            background: rgba(255, 255, 255, 0.08);
-            color: #93c5fd;
+            opacity: 0.6;
+            margin-top: 2px;
         }
+        .alert-category .alert-status {
+            font-size: 0.55rem;
+            margin-top: 4px;
+            padding: 2px 8px;
+            border-radius: 30px;
+            display: inline-block;
+            background: rgba(34, 197, 94, 0.15);
+            color: #4ade80;
+        }
+        .alert-category.active {
+            border-color: rgba(239, 68, 68, 0.4);
+            background: rgba(239, 68, 68, 0.08);
+            animation: pulseRed 1.5s infinite;
+        }
+        .alert-category.active .alert-status {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+        }
+        @keyframes pulseRed {
+            0%,
+            100% {
+                border-color: rgba(239, 68, 68, 0.2);
+            }
+            50% {
+                border-color: rgba(239, 68, 68, 0.7);
+            }
+        }
+
+        /* ===== SECTION TITLE ===== */
+        .section-title {
+            font-weight: 600;
+            margin: 16px 0 10px;
+            font-size: 1rem;
+            opacity: 0.8;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section-title .line {
+            flex: 1;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        /* ===== SEARCH RESULTS ===== */
+        .search-results {
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 12px;
+            margin-top: 4px;
+            max-height: 180px;
+            overflow-y: auto;
+            display: none;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            z-index: 1000;
+            position: relative;
+        }
+        .search-results .result-item {
+            padding: 8px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        .search-results .result-item:active {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* ===== MANUAL COORDS ===== */
+        .manual-coords {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 30px;
+            padding: 4px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+        .manual-coords input {
+            background: transparent;
+            border: none;
+            padding: 6px 0;
+            color: #fff;
+            font-size: 0.8rem;
+            outline: none;
+            width: 75px;
+        }
+        .manual-coords input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+        .manual-coords button {
+            background: rgba(59, 130, 246, 0.2);
+            border: none;
+            color: #fff;
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 0.7rem;
+            cursor: pointer;
+        }
+
+        /* ===== SAVE PIN BUTTON ===== */
+        .save-pin-btn {
+            margin: 8px auto 12px;
+            display: none;
+            background: rgba(34, 197, 94, 0.2);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            width: 100%;
+            text-align: center;
+        }
+        .save-pin-btn:active {
+            transform: scale(0.97);
+        }
+
+        /* ===== NOTIFICATION BANNER ===== */
+        .notif-banner {
+            background: rgba(59, 130, 246, 0.08);
+            border: 1px solid rgba(59, 130, 246, 0.1);
+            border-radius: 12px;
+            padding: 8px 14px;
+            margin-bottom: 10px;
+            font-size: 0.7rem;
+            opacity: 0.7;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .notif-banner button {
+            background: rgba(59, 130, 246, 0.2);
+            border: none;
+            color: #93c5fd;
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 0.7rem;
+            cursor: pointer;
+        }
+
+        /* ===== OWNER PROFILE ===== */
         .owner-profile {
             background: rgba(255, 255, 255, 0.04);
             border-radius: 18px;
             padding: 16px;
             margin: 20px 0 12px;
             border: 1px solid rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(8px);
         }
         .owner-profile-inner {
             display: flex;
@@ -364,79 +525,268 @@
             font-size: 0.6rem;
             margin-top: 2px;
         }
-        .search-results {
-            background: rgba(0, 0, 0, 0.7);
-            border-radius: 12px;
-            margin-top: 4px;
-            max-height: 180px;
-            overflow-y: auto;
+
+        .footer {
+            text-align: center;
+            margin-top: 24px;
+            font-size: 0.6rem;
+            opacity: 0.3;
+            padding-bottom: 16px;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px 0;
+            font-size: 1rem;
+            opacity: 0.7;
+        }
+        .error {
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 14px;
+            padding: 14px;
+            text-align: center;
+            color: #fca5a5;
+        }
+        .aqi-badge {
+            padding: 2px 10px;
+            border-radius: 30px;
+            font-size: 0.6rem;
+            font-weight: 600;
+            background: #22c55e;
+            color: #000;
+        }
+        .prob-badge {
+            font-size: 0.65rem;
+            padding: 2px 10px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.08);
+            color: #93c5fd;
+        }
+
+        /* ===== LOGIN OVERLAY ===== */
+        .login-overlay {
             display: none;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            z-index: 1000;
-            position: relative;
-        }
-        .search-results .result-item {
-            padding: 8px 14px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            cursor: pointer;
-            font-size: 0.8rem;
-            transition: 0.2s;
-        }
-        .search-results .result-item:last-child {
-            border-bottom: none;
-        }
-        .search-results .result-item:active {
-            background: rgba(255, 255, 255, 0.1);
-        }
-        .manual-coords {
-            display: flex;
-            gap: 6px;
-            margin-bottom: 8px;
-            flex-wrap: wrap;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            z-index: 10000;
+            justify-content: center;
             align-items: center;
-            background: rgba(255, 255, 255, 0.04);
-            border-radius: 30px;
-            padding: 4px 12px;
-            border: 1px solid rgba(255, 255, 255, 0.04);
+            padding: 20px;
         }
-        .manual-coords input {
-            background: transparent;
-            border: none;
-            padding: 6px 0;
-            color: #fff;
+        .login-overlay.active {
+            display: flex;
+        }
+        .login-box {
+            background: #1a2f44;
+            border-radius: 24px;
+            padding: 32px 24px;
+            max-width: 400px;
+            width: 100%;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+        .login-box h2 {
+            text-align: center;
+            margin-bottom: 8px;
+            color: #93c5fd;
+        }
+        .login-box .sub {
+            text-align: center;
+            opacity: 0.5;
             font-size: 0.8rem;
+            margin-bottom: 20px;
+        }
+        .login-box input {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            font-size: 1rem;
+            margin-bottom: 12px;
             outline: none;
-            width: 75px;
         }
-        .manual-coords input::placeholder {
-            color: rgba(255, 255, 255, 0.3);
+        .login-box input:focus {
+            border-color: #3b82f6;
         }
-        .manual-coords button {
-            background: rgba(59, 130, 246, 0.2);
+        .login-box .otp-row {
+            display: flex;
+            gap: 10px;
+        }
+        .login-box .otp-row input {
+            flex: 1;
+        }
+        .login-box .otp-row button {
+            padding: 12px 20px;
+            border-radius: 12px;
+            border: none;
+            background: rgba(59, 130, 246, 0.3);
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .login-box .send-btn {
+            width: 100%;
+            padding: 12px;
+            border-radius: 12px;
+            border: none;
+            background: #3b82f6;
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 12px;
+        }
+        .login-box .send-btn:active {
+            transform: scale(0.97);
+        }
+        .login-box .file-input label {
+            cursor: pointer;
+            display: block;
+            padding: 8px 12px;
+            border-radius: 12px;
+            border: 1px dashed rgba(255, 255, 255, 0.1);
+            text-align: center;
+            margin-bottom: 12px;
+            font-size: 0.8rem;
+            opacity: 0.6;
+        }
+        .login-box .avatar-preview {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            margin: 0 auto 10px;
+            display: none;
+            border: 2px solid rgba(59, 130, 246, 0.2);
+            object-fit: cover;
+            background: #0b1a2e;
+        }
+        .login-box .tab-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .login-box .tab-row button {
+            flex: 1;
+            padding: 8px;
+            border-radius: 8px;
             border: none;
             color: #fff;
-            padding: 4px 12px;
-            border-radius: 30px;
-            font-size: 0.7rem;
+            font-weight: 600;
             cursor: pointer;
+            background: rgba(255, 255, 255, 0.05);
         }
-        .save-pin-btn {
-            margin: 8px auto 12px;
-            display: none;
-            background: rgba(34, 197, 94, 0.2);
-            border: 1px solid rgba(34, 197, 94, 0.3);
-            color: #fff;
+        .login-box .tab-row button.active {
+            background: rgba(59, 130, 246, 0.2);
+        }
+        .login-box .user-info {
+            text-align: center;
+            padding: 10px 0;
+            color: #4ade80;
+        }
+        .login-box .logout-btn {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
             padding: 8px 16px;
             border-radius: 30px;
             cursor: pointer;
-            font-size: 0.85rem;
-            width: 100%;
+            font-size: 0.8rem;
+            margin-top: 10px;
+            display: inline-block;
+        }
+
+        /* ===== DRAWER ===== */
+        .drawer-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+            justify-content: flex-end;
+        }
+        .drawer-overlay.active {
+            display: flex;
+        }
+        .drawer {
+            background: #1a2f44;
+            width: 280px;
+            max-width: 80%;
+            height: 100%;
+            padding: 24px 20px;
+            border-left: 1px solid rgba(255, 255, 255, 0.05);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            box-shadow: -10px 0 40px rgba(0, 0, 0, 0.3);
+        }
+        .drawer .close-btn {
+            align-self: flex-end;
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 1.5rem;
+            cursor: pointer;
+            opacity: 0.6;
+        }
+        .drawer .profile-section {
             text-align: center;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
-        .save-pin-btn:active {
+        .drawer .profile-section .avatar-lg {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 3px solid rgba(59, 130, 246, 0.3);
+            object-fit: cover;
+            margin: 0 auto 8px;
+            background: #0b1a2e;
+        }
+        .drawer .profile-section .name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #93c5fd;
+        }
+        .drawer .profile-section .phone {
+            font-size: 0.8rem;
+            opacity: 0.5;
+        }
+        .drawer .menu-item {
+            padding: 12px 16px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.9rem;
+            transition: 0.2s;
+        }
+        .drawer .menu-item:active {
             transform: scale(0.97);
-            background: rgba(34, 197, 94, 0.3);
+            background: rgba(255, 255, 255, 0.08);
         }
+        .drawer .menu-item .icon {
+            font-size: 1.2rem;
+        }
+        .drawer .menu-item.danger {
+            color: #fca5a5;
+            border-color: rgba(239, 68, 68, 0.1);
+        }
+
         @media (max-width: 420px) {
             .card-value {
                 font-size: 1.1rem;
@@ -451,37 +801,85 @@
                 font-size: 0.7rem;
                 padding: 4px 8px;
             }
-            .owner-profile-inner img {
-                width: 50px;
-                height: 50px;
+            #interactiveMap {
+                height: 220px;
             }
-            .owner-info {
-                font-size: 0.6rem;
-            }
-            .owner-name strong {
-                font-size: 0.85rem;
+            .alert-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 6px;
             }
             .manual-coords input {
                 width: 55px;
                 font-size: 0.7rem;
             }
-            #interactiveMap {
-                height: 180px;
+            .drawer {
+                width: 240px;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container" id="app">
-        <!-- Top Bar -->
+
+    <div class="container">
+
+        <!-- ===== LOGIN OVERLAY ===== -->
+        <div class="login-overlay" id="loginOverlay">
+            <div class="login-box">
+                <h2>📱 रियल OTP लॉगिन</h2>
+                <div class="sub">SMS या Email द्वारा वेरिफिकेशन</div>
+
+                <div class="tab-row">
+                    <button id="tabPhone" class="active">📱 मोबाइल</button>
+                    <button id="tabEmail">✉️ Email</button>
+                </div>
+
+                <div id="loginContent">
+                    <!-- Phone -->
+                    <div id="phoneSection">
+                        <input type="text" id="phoneInput" placeholder="📱 +91 9876543210" />
+                        <button class="send-btn" id="sendSmsBtn">📨 REAL SMS OTP भेजें</button>
+                    </div>
+                    <!-- Email -->
+                    <div id="emailSection" style="display:none;">
+                        <input type="email" id="emailInput" placeholder="✉️ you@email.com" />
+                        <button class="send-btn" id="sendEmailBtn">📨 REAL Email OTP भेजें</button>
+                    </div>
+
+                    <input type="text" id="nameInput" placeholder="👤 अपना नाम" />
+                    <div class="file-input">
+                        <label>📷 फोटो अपलोड करें
+                            <input type="file" id="photoInput" accept="image/*" style="display:none;">
+                        </label>
+                    </div>
+                    <img id="avatarPreview" class="avatar-preview" src="" alt="Avatar" />
+
+                    <div class="otp-row">
+                        <input type="text" id="otpInput" placeholder="🔢 Auto-Read OTP" maxlength="6" autocomplete="one-time-code" />
+                        <button id="verifyOtpBtn">✅ सत्यापित</button>
+                    </div>
+
+                    <div id="loginStatus" style="text-align:center;margin-top:10px;font-size:0.8rem;opacity:0.8;"></div>
+                </div>
+
+                <div id="loggedInContent" style="display:none;">
+                    <div class="user-info">✅ लॉगिन सफल!</div>
+                    <div style="text-align:center;">
+                        <button class="logout-btn" id="logoutBtn">🚪 लॉगआउट</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== TOP BAR ===== -->
         <div class="top-bar">
             <input type="text" id="searchInput" placeholder="🔍 गाँव/शहर/ज़िला खोजें..." />
             <button id="searchBtn">खोज</button>
             <button class="refresh-btn" id="refreshBtn">🔄</button>
             <button class="home-btn" id="homeBtn">🏠</button>
+            <button class="menu-btn" id="menuBtn">⋮</button>
         </div>
 
-        <!-- Search Results Dropdown -->
+        <!-- Search Results -->
         <div class="search-results" id="searchResults"></div>
 
         <!-- Manual Coordinates -->
@@ -496,32 +894,88 @@
         <!-- Saved Places -->
         <div class="saved-chips" id="savedChips"></div>
 
+        <!-- Welcome Banner -->
+        <div class="welcome-banner" id="welcomeBanner">
+            <img id="welcomeAvatar" class="avatar" src="" alt="Avatar">
+            <div class="text" id="welcomeText">
+                <strong>नमस्ते!</strong><br>
+                <span>आपका मौसम अपडेट</span>
+                <div class="small" id="welcomeSub"></div>
+            </div>
+        </div>
+
         <!-- Location -->
         <div class="location-badge" id="locationDisplay">📍 स्थान प्राप्त कर रहा है...</div>
 
-        <!-- Interactive Map -->
+        <!-- Map (Bigger) -->
         <div id="interactiveMap"></div>
 
         <!-- Save Pin Button -->
         <button class="save-pin-btn" id="savePinBtn">📍 इस स्थान को सहेजें</button>
 
-        <!-- Alerts -->
-        <div class="critical-alert" id="criticalAlert">⚠️ गंभीर चेतावनी!</div>
+        <!-- Notification Banner -->
+        <div class="notif-banner" id="notifBanner">
+            <span>🔔 सूचनाएं प्राप्त करें</span>
+            <button id="notifAllowBtn">✅ अनुमति दें</button>
+        </div>
+
+        <!-- Critical Alert -->
+        <div class="critical-alert" id="criticalAlert">🚨 गंभीर चेतावनी!</div>
         <div class="storm-alert" id="stormAlert">⚡ तूफ़ान की संभावना! हवा का दबाव तेज़ी से गिर रहा है।</div>
         <div class="rain-alert" id="rainAlert">🌧️ अगले 1 घंटे में बारिश की संभावना! तैयार रहें।</div>
 
-        <!-- Alert Container -->
-        <div class="alert-container" id="alertContainer">
-            <div class="alert-title">🌍 आपदा चेतावनियाँ</div>
-            <div style="opacity:0.5;font-size:0.8rem;">लोड हो रहा है...</div>
-        </div>
-
-        <!-- Weather Cards -->
+        <!-- ===== WEATHER CARDS ===== -->
         <div id="content">
             <div class="loading">⏳ डेटा लोड हो रहा है...</div>
         </div>
 
-        <!-- Owner Profile -->
+        <!-- ===== SOLAR & LIGHT ===== -->
+        <div id="solarContent"></div>
+
+        <!-- ===== ALERT GRID ===== -->
+        <div class="section-title">
+            <span>🚨 आपदा चेतावनियाँ</span>
+            <span class="line"></span>
+        </div>
+        <div class="alert-grid" id="alertGrid">
+            <div class="alert-category" id="alert-earthquake">
+                <div class="alert-icon">🌍</div>
+                <div class="alert-name">भूकंप</div>
+                <div class="alert-status">✅ सुरक्षित</div>
+            </div>
+            <div class="alert-category" id="alert-flood">
+                <div class="alert-icon">🌊</div>
+                <div class="alert-name">बाढ़</div>
+                <div class="alert-status">✅ सुरक्षित</div>
+            </div>
+            <div class="alert-category" id="alert-cyclone">
+                <div class="alert-icon">🌀</div>
+                <div class="alert-name">चक्रवात</div>
+                <div class="alert-status">✅ सुरक्षित</div>
+            </div>
+            <div class="alert-category" id="alert-volcano">
+                <div class="alert-icon">🌋</div>
+                <div class="alert-name">ज्वालामुखी</div>
+                <div class="alert-status">✅ सुरक्षित</div>
+            </div>
+            <div class="alert-category" id="alert-snowfall">
+                <div class="alert-icon">❄️</div>
+                <div class="alert-name">हिमपात</div>
+                <div class="alert-status">✅ सुरक्षित</div>
+            </div>
+            <div class="alert-category" id="alert-drought">
+                <div class="alert-icon">🏜️</div>
+                <div class="alert-name">सूखा</div>
+                <div class="alert-status">✅ सुरक्षित</div>
+            </div>
+            <div class="alert-category" id="alert-wildfire">
+                <div class="alert-icon">🔥</div>
+                <div class="alert-name">जंगल की आग</div>
+                <div class="alert-status">✅ सुरक्षित</div>
+            </div>
+        </div>
+
+        <!-- ===== OWNER PROFILE ===== -->
         <div class="owner-profile">
             <div class="owner-profile-inner">
                 <img src="owner.jpg" alt="DIVY" onerror="this.style.display='none'">
@@ -542,7 +996,7 @@
             </div>
         </div>
 
-        <div class="footer">🔁 हर 15 मिनट में अपडेट · Open-Meteo + USGS + GDACS · v4.0 (पूर्ण)</div>
+        <div class="footer">🔁 हर 15 मिनट में अपडेट · Open-Meteo + USGS + GDACS · v5.0</div>
     </div>
 
     <!-- Leaflet JS -->
@@ -551,7 +1005,23 @@
 
     <script>
         // ============================================================
-        //  1. GLOBAL STATE
+        // FIREBASE CONFIG (YOUR REAL CONFIG)
+        // ============================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyCwcG7s1j1SFJbDOh8FBsEpc6YWv39qX9k",
+            authDomain: "weather-timer-app.firebaseapp.com",
+            projectId: "weather-timer-app",
+            storageBucket: "weather-timer-app.firebasestorage.app",
+            messagingSenderId: "999714172616",
+            appId: "1:999714172616:web:dd2c1f3947138b06733ffd",
+            measurementId: "G-LP68VQE63Y"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+
+        // ============================================================
+        // GLOBAL STATE
         // ============================================================
         let currentLat = 28.6139;
         let currentLon = 77.2090;
@@ -564,11 +1034,16 @@
         let map = null;
         let marker = null;
         let isMapInitialized = false;
+        let isLoggedIn = false;
+        let userData = null;
+        let confirmationResult = null;
+        let generatedOtp = null;
 
         // ============================================================
-        //  2. DOM REFS
+        // DOM REFS
         // ============================================================
         const content = document.getElementById('content');
+        const solarContent = document.getElementById('solarContent');
         const locationDisplay = document.getElementById('locationDisplay');
         const searchInput = document.getElementById('searchInput');
         const searchBtn = document.getElementById('searchBtn');
@@ -578,15 +1053,60 @@
         const stormAlert = document.getElementById('stormAlert');
         const rainAlert = document.getElementById('rainAlert');
         const criticalAlert = document.getElementById('criticalAlert');
-        const alertContainer = document.getElementById('alertContainer');
         const searchResults = document.getElementById('searchResults');
         const latInput = document.getElementById('latInput');
         const lonInput = document.getElementById('lonInput');
         const manualGoBtn = document.getElementById('manualGoBtn');
         const savePinBtn = document.getElementById('savePinBtn');
+        const notifBanner = document.getElementById('notifBanner');
+        const notifAllowBtn = document.getElementById('notifAllowBtn');
+        const menuBtn = document.getElementById('menuBtn');
+        const drawerOverlay = document.getElementById('drawerOverlay');
+        const closeDrawerBtn = document.getElementById('closeDrawerBtn');
+        const drawerAvatar = document.getElementById('drawerAvatar');
+        const drawerName = document.getElementById('drawerName');
+        const drawerPhone = document.getElementById('drawerPhone');
+        const drawerProfile = document.getElementById('drawerProfile');
+        const drawerShare = document.getElementById('drawerShare');
+        const drawerAlerts = document.getElementById('drawerAlerts');
+        const drawerLogout = document.getElementById('drawerLogout');
+        const welcomeBanner = document.getElementById('welcomeBanner');
+        const welcomeAvatar = document.getElementById('welcomeAvatar');
+        const welcomeText = document.getElementById('welcomeText');
+        const welcomeSub = document.getElementById('welcomeSub');
+
+        // Login
+        const loginOverlay = document.getElementById('loginOverlay');
+        const nameInput = document.getElementById('nameInput');
+        const phoneInput = document.getElementById('phoneInput');
+        const otpInput = document.getElementById('otpInput');
+        const sendSmsBtn = document.getElementById('sendSmsBtn');
+        const sendEmailBtn = document.getElementById('sendEmailBtn');
+        const verifyOtpBtn = document.getElementById('verifyOtpBtn');
+        const loginStatus = document.getElementById('loginStatus');
+        const loginContent = document.getElementById('loginContent');
+        const loggedInContent = document.getElementById('loggedInContent');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const photoInput = document.getElementById('photoInput');
+        const avatarPreview = document.getElementById('avatarPreview');
+        const tabPhone = document.getElementById('tabPhone');
+        const tabEmail = document.getElementById('tabEmail');
+        const phoneSection = document.getElementById('phoneSection');
+        const emailSection = document.getElementById('emailSection');
+
+        // Alert elements
+        const alertElements = {
+            earthquake: document.getElementById('alert-earthquake'),
+            flood: document.getElementById('alert-flood'),
+            cyclone: document.getElementById('alert-cyclone'),
+            volcano: document.getElementById('alert-volcano'),
+            snowfall: document.getElementById('alert-snowfall'),
+            drought: document.getElementById('alert-drought'),
+            wildfire: document.getElementById('alert-wildfire')
+        };
 
         // ============================================================
-        //  3. HELPERS
+        // HELPERS
         // ============================================================
         function formatCountdown(seconds) {
             if (seconds < 0) seconds = 0;
@@ -594,7 +1114,7 @@
             const h = Math.floor(seconds / 3600);
             const m = Math.floor((seconds % 3600) / 60);
             const s = Math.floor(seconds % 60);
-            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
         }
 
         function formatMinutes(seconds) {
@@ -630,24 +1150,385 @@
             return 60;
         }
 
+        function getRainCategory(mm) {
+            if (mm < 0.1) return { label: 'बूंदाबांदी', emoji: '🌦️', color: '#93c5fd' };
+            if (mm < 0.5) return { label: 'हल्की बारिश', emoji: '🌧️', color: '#60a5fa' };
+            if (mm < 1.5) return { label: 'मध्यम बारिश', emoji: '🌧️', color: '#facc15' };
+            if (mm < 4.0) return { label: 'भारी बारिश', emoji: '⛈️', color: '#f59e0b' };
+            return { label: 'बहुत भारी बारिश', emoji: '🌊', color: '#ef4444' };
+        }
+
+        function getSunCategory(uv, temp) {
+            if (uv > 8 || temp > 40) return { label: 'बहुत गर्म', emoji: '🔥', color: '#ef4444' };
+            if (uv > 6 || temp > 35) return { label: 'गर्म', emoji: '☀️', color: '#fb923c' };
+            if (uv > 3 || temp > 28) return { label: 'हल्की गर्मी', emoji: '🌤️', color: '#facc15' };
+            if (temp > 20) return { label: 'सामान्य', emoji: '🌥️', color: '#4ade80' };
+            return { label: 'ठंडा', emoji: '❄️', color: '#93c5fd' };
+        }
+
         function getDistance(lat1, lon1, lat2, lon2) {
             const R = 6371;
             const dLat = (lat2 - lat1) * Math.PI / 180;
             const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            const a = Math.sin(dLat / 2) ** 2 +
                 Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                Math.sin(dLon / 2) ** 2;
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
             return R * c;
         }
 
         // ============================================================
-        //  4. SAVED PLACES (localStorage)
+        // USER MANAGEMENT
+        // ============================================================
+        function loadUserData() {
+            try {
+                const data = localStorage.getItem('weather_user');
+                if (data) {
+                    userData = JSON.parse(data);
+                    isLoggedIn = true;
+                    return true;
+                }
+            } catch (e) {}
+            return false;
+        }
+
+        function saveUserData(name, phone, photo) {
+            userData = { name, phone, photo: photo || '' };
+            localStorage.setItem('weather_user', JSON.stringify(userData));
+            isLoggedIn = true;
+            updateUIForUser();
+        }
+
+        function updateUIForUser() {
+            if (userData) {
+                const avatarSrc = userData.photo || '';
+                drawerAvatar.src = avatarSrc;
+                drawerName.textContent = userData.name || 'अतिथि';
+                drawerPhone.textContent = userData.phone || '--';
+                welcomeAvatar.src = avatarSrc;
+                welcomeText.innerHTML = `<strong>नमस्ते, ${userData.name || 'अतिथि'}!</strong><br><span>आपका स्वागत है 🌦️</span>`;
+                welcomeSub.textContent = `📍 ${currentCity} · अब अपडेट हो रहा है`;
+                welcomeBanner.style.display = 'flex';
+            } else {
+                welcomeBanner.style.display = 'none';
+            }
+        }
+
+        function logoutUser() {
+            localStorage.removeItem('weather_user');
+            isLoggedIn = false;
+            userData = null;
+            drawerAvatar.src = '';
+            drawerName.textContent = 'अतिथि';
+            drawerPhone.textContent = '--';
+            welcomeBanner.style.display = 'none';
+            loginContent.style.display = 'block';
+            loggedInContent.style.display = 'none';
+            document.querySelector('.login-box h2').textContent = '📱 रियल OTP लॉगिन';
+            loginStatus.textContent = '';
+            drawerOverlay.classList.remove('active');
+            loginOverlay.classList.add('active');
+        }
+
+        // ============================================================
+        // NOTIFICATIONS & REMINDERS
+        // ============================================================
+        async function requestNotificationPermission() {
+            if (!('Notification' in window)) {
+                alert('यह ब्राउज़र सूचनाओं का समर्थन नहीं करता');
+                return;
+            }
+            const result = await Notification.requestPermission();
+            if (result === 'granted') {
+                notifBanner.style.display = 'none';
+                sendNotification('✅ सूचनाएं सक्षम', 'आपको आपदा चेतावनियाँ प्राप्त होंगी');
+            } else {
+                alert('सूचनाओं के लिए अनुमति आवश्यक है');
+            }
+        }
+
+        function sendNotification(title, body) {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification(title, {
+                    body: body,
+                    icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🌦️</text></svg>'
+                });
+            }
+        }
+
+        let alertCheckInterval = null;
+
+        function startAlertReminder() {
+            if (alertCheckInterval) clearInterval(alertCheckInterval);
+            alertCheckInterval = setInterval(() => {
+                checkAllAlerts(currentLat, currentLon);
+                const active = document.querySelectorAll('.alert-category.active');
+                if (active.length > 0) {
+                    sendNotification('🔔 आपदा चेतावनी सक्रिय',
+                        `${active.length} चेतावनी(याँ) हैं। कृपया सावधान रहें।`);
+                }
+                // silent refresh
+                if (isHomeMode) getLocationAndFetch(true);
+                else loadData(currentLat, currentLon, currentCity, true);
+            }, 15 * 60 * 1000);
+        }
+
+        // ============================================================
+        // LOGIN (Firebase Phone + Email)
+        // ============================================================
+        // Tab switching
+        tabPhone.onclick = function() {
+            tabPhone.classList.add('active');
+            tabEmail.classList.remove('active');
+            phoneSection.style.display = 'block';
+            emailSection.style.display = 'none';
+        };
+        tabEmail.onclick = function() {
+            tabEmail.classList.add('active');
+            tabPhone.classList.remove('active');
+            phoneSection.style.display = 'none';
+            emailSection.style.display = 'block';
+        };
+
+        // Send SMS OTP
+        sendSmsBtn.onclick = function() {
+            const phone = phoneInput.value.trim();
+            if (!phone || phone.length < 10) {
+                loginStatus.textContent = '❌ सही नंबर डालें (+91xxxxxxxxxx)';
+                loginStatus.style.color = '#fca5a5';
+                return;
+            }
+            loginStatus.textContent = '⏳ SMS भेजा जा रहा है...';
+            loginStatus.style.color = '#93c5fd';
+
+            const appVerifier = new firebase.auth.RecaptchaVerifier('sendSmsBtn', {
+                size: 'invisible'
+            });
+            auth.signInWithPhoneNumber(phone, appVerifier)
+                .then((result) => {
+                    confirmationResult = result;
+                    loginStatus.textContent = '✅ OTP SMS भेजा गया! Auto-Read हो रहा है...';
+                    loginStatus.style.color = '#4ade80';
+
+                    // Auto-read OTP
+                    if ('OTPCredential' in window) {
+                        navigator.credentials.get({ otp: { transport: ['sms'] } })
+                            .then(otpCred => {
+                                if (otpCred && otpCred.code) {
+                                    otpInput.value = otpCred.code;
+                                    verifyOtpBtn.click();
+                                }
+                            }).catch(() => console.log('Auto-read failed'));
+                    }
+                })
+                .catch(err => {
+                    loginStatus.textContent = '❌ ' + err.message;
+                    loginStatus.style.color = '#fca5a5';
+                });
+        };
+
+        // Send Email link
+        sendEmailBtn.onclick = function() {
+            const email = document.getElementById('emailInput').value.trim();
+            if (!email || !email.includes('@')) {
+                loginStatus.textContent = '❌ सही Email डालें';
+                loginStatus.style.color = '#fca5a5';
+                return;
+            }
+            loginStatus.textContent = '⏳ Email भेजा जा रहा है...';
+            loginStatus.style.color = '#93c5fd';
+
+            const actionCodeSettings = {
+                url: window.location.href,
+                handleCodeInApp: true
+            };
+            auth.sendSignInLinkToEmail(email, actionCodeSettings)
+                .then(() => {
+                    loginStatus.textContent = '✅ Email भेजा गया! लिंक पर क्लिक करें।';
+                    loginStatus.style.color = '#4ade80';
+                    localStorage.setItem('emailForSignIn', email);
+                })
+                .catch(err => {
+                    loginStatus.textContent = '❌ ' + err.message;
+                    loginStatus.style.color = '#fca5a5';
+                });
+        };
+
+        // Handle Email redirect
+        if (auth.isSignInWithEmailLink(window.location.href)) {
+            let email = localStorage.getItem('emailForSignIn');
+            if (!email) email = prompt('कृपया अपना Email डालें:');
+            auth.signInWithEmailLink(email, window.location.href)
+                .then((userCred) => {
+                    localStorage.removeItem('emailForSignIn');
+                    loginSuccess(userCred.user);
+                })
+                .catch(err => alert('❌ ' + err.message));
+        }
+
+        // Verify OTP (Phone)
+        verifyOtpBtn.onclick = function() {
+            const otp = otpInput.value.trim();
+            if (!otp) {
+                loginStatus.textContent = '❌ OTP डालें';
+                loginStatus.style.color = '#fca5a5';
+                return;
+            }
+            loginStatus.textContent = '⏳ सत्यापित हो रहा है...';
+            loginStatus.style.color = '#93c5fd';
+
+            if (confirmationResult) {
+                confirmationResult.confirm(otp)
+                    .then((userCred) => {
+                        loginSuccess(userCred.user);
+                    })
+                    .catch(err => {
+                        loginStatus.textContent = '❌ ' + err.message;
+                        loginStatus.style.color = '#fca5a5';
+                    });
+            } else {
+                loginStatus.textContent = '❌ पहले OTP भेजें';
+                loginStatus.style.color = '#fca5a5';
+            }
+        };
+
+        // Photo upload
+        photoInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(ev) {
+                    avatarPreview.src = ev.target.result;
+                    avatarPreview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function loginSuccess(user) {
+            const name = nameInput.value.trim() || 'उपयोगकर्ता';
+            const phone = phoneInput.value.trim() || user.phoneNumber || '';
+            const photo = avatarPreview.src || '';
+            const data = { uid: user.uid, name, phone, photo, email: user.email };
+            localStorage.setItem('weather_user', JSON.stringify(data));
+            userData = data;
+            isLoggedIn = true;
+            loginContent.style.display = 'none';
+            loggedInContent.style.display = 'block';
+            document.querySelector('.login-box h2').textContent = '✅ लॉगिन सफल!';
+            loginStatus.textContent = '';
+            loginOverlay.classList.remove('active');
+            updateUIForUser();
+            sendNotification('🔐 लॉगिन सफल', `स्वागत है, ${name}!`);
+            // Refresh data
+            if (isHomeMode) getLocationAndFetch();
+            else loadData(currentLat, currentLon, currentCity);
+        }
+
+        logoutBtn.onclick = function() {
+            logoutUser();
+        };
+
+        // ============================================================
+        // DRAWER
+        // ============================================================
+        menuBtn.onclick = function() {
+            if (userData) {
+                drawerAvatar.src = userData.photo || '';
+                drawerName.textContent = userData.name || 'अतिथि';
+                drawerPhone.textContent = userData.phone || '--';
+            } else {
+                drawerAvatar.src = '';
+                drawerName.textContent = 'अतिथि';
+                drawerPhone.textContent = '--';
+            }
+            drawerOverlay.classList.add('active');
+        };
+
+        closeDrawerBtn.onclick = function() { drawerOverlay.classList.remove('active'); };
+        drawerOverlay.addEventListener('click', function(e) {
+            if (e.target === drawerOverlay) drawerOverlay.classList.remove('active');
+        });
+
+        drawerProfile.onclick = function() {
+            drawerOverlay.classList.remove('active');
+            if (isLoggedIn) {
+                nameInput.value = userData.name || '';
+                phoneInput.value = userData.phone || '';
+                if (userData.photo) {
+                    avatarPreview.src = userData.photo;
+                    avatarPreview.style.display = 'block';
+                }
+                loginContent.style.display = 'block';
+                loggedInContent.style.display = 'none';
+                document.querySelector('.login-box h2').textContent = '✏️ प्रोफ़ाइल संपादित करें';
+                loginStatus.textContent = 'अपना विवरण अपडेट करें और OTP सत्यापित करें';
+                loginStatus.style.color = '#93c5fd';
+                loginOverlay.classList.add('active');
+            } else {
+                loginContent.style.display = 'block';
+                loggedInContent.style.display = 'none';
+                document.querySelector('.login-box h2').textContent = '📱 रियल OTP लॉगिन';
+                loginStatus.textContent = '';
+                loginOverlay.classList.add('active');
+            }
+        };
+
+        drawerShare.onclick = function() {
+            drawerOverlay.classList.remove('active');
+            if (navigator.share) {
+                navigator.share({
+                    title: '🌦️ मौसम टाइमर',
+                    text: 'अपने क्षेत्र का मौसम और आपदा चेतावनियाँ पाएं।',
+                    url: window.location.href
+                }).catch(() => {});
+            } else {
+                alert('📤 शेयर करने के लिए URL कॉपी करें: ' + window.location.href);
+            }
+        };
+
+        drawerAlerts.onclick = function() {
+            drawerOverlay.classList.remove('active');
+            const active = document.querySelectorAll('.alert-category.active');
+            if (active.length === 0) {
+                alert('✅ कोई सक्रिय चेतावनी नहीं। आप सुरक्षित हैं।');
+            } else {
+                let msg = '🚨 सक्रिय चेतावनियाँ:\n';
+                active.forEach(el => {
+                    const name = el.querySelector('.alert-name')?.textContent || '';
+                    const status = el.querySelector('.alert-status')?.textContent || '';
+                    msg += `- ${name}: ${status}\n`;
+                });
+                alert(msg);
+            }
+        };
+
+        drawerLogout.onclick = function() {
+            drawerOverlay.classList.remove('active');
+            if (isLoggedIn) {
+                if (confirm('क्या आप लॉगआउट करना चाहते हैं?')) logoutUser();
+            } else {
+                alert('आप पहले से लॉगआउट हैं।');
+            }
+        };
+
+        // ============================================================
+        // EXIT POPUP
+        // ============================================================
+        window.addEventListener('beforeunload', function(e) {
+            if (isLoggedIn) {
+                e.preventDefault();
+                e.returnValue =
+                    '🌦️ कृपया 15 मिनट बाद वापस आकर मौसम अपडेट देखें। आपकी सुरक्षा महत्वपूर्ण है!';
+                return e.returnValue;
+            }
+        });
+
+        // ============================================================
+        // SAVED PLACES
         // ============================================================
         function getSaved() {
-            try {
-                return JSON.parse(localStorage.getItem('weather_saved')) || [];
-            } catch { return []; }
+            try { return JSON.parse(localStorage.getItem('weather_saved')) || []; } catch { return []; }
         }
 
         function savePlace(name, lat, lon) {
@@ -684,7 +1565,7 @@
         }
 
         // ============================================================
-        //  5. MAP FUNCTIONS
+        // MAP with LAYER CONTROL (Street, Satellite, Terrain, Dark)
         // ============================================================
         function initMap(lat, lon) {
             if (isMapInitialized && map) {
@@ -695,18 +1576,46 @@
 
             map = L.map('interactiveMap').setView([lat, lon], 13);
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap',
-                maxZoom: 19
-            }).addTo(map);
+            // Base layers
+            const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+            });
 
+            const satelliteLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+            }); // Actually we'll use a different provider for satellite
+            // For true satellite, we'd need an API key; we'll use a free OSM-based hybrid
+            const satellite = L.tileLayer(
+                'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: 'Tiles © Esri'
+                });
+
+            const terrainLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenTopoMap'
+            });
+
+            const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '© OpenStreetMap, © CartoDB'
+            });
+
+            // Add layers to map with control
+            const baseLayers = {
+                '🗺️ सड़क': streetLayer,
+                '🛰️ उपग्रह': satellite,
+                '⛰️ भू-भाग': terrainLayer,
+                '🌙 डार्क': darkLayer
+            };
+
+            streetLayer.addTo(map);
+            L.control.layers(baseLayers).addTo(map);
+
+            // Pin
             const pinIcon = L.divIcon({
                 className: 'custom-pin',
                 html: '📍',
                 iconSize: [30, 30],
                 iconAnchor: [15, 30]
             });
-
             marker = L.marker([lat, lon], { draggable: true, icon: pinIcon }).addTo(map);
 
             marker.on('dragend', function(e) {
@@ -742,7 +1651,7 @@
             });
 
             isMapInitialized = true;
-            setTimeout(() => { map.invalidateSize(); }, 500);
+            setTimeout(() => map.invalidateSize(), 500);
         }
 
         function updateMap(lat, lon) {
@@ -755,22 +1664,21 @@
         }
 
         // ============================================================
-        //  6. FETCHING DATA
+        // FETCHING DATA
         // ============================================================
         async function fetchWeather(lat, lon) {
-            const base = 'https://api.open-meteo.com/v1/forecast';
             const params = new URLSearchParams({
                 latitude: lat,
                 longitude: lon,
                 current_weather: true,
                 hourly: 'precipitation',
-                daily: 'sunrise,sunset,moonrise,moonset',
+                daily: 'sunrise,sunset,moonrise,moonset,uv_index_max,shortwave_radiation_sum',
                 timezone: 'Asia/Kolkata',
                 forecast_days: 2,
                 past_days: 0,
-                current: 'temperature_2m,relative_humidity_2m,apparent_temperature,cloud_cover,wind_speed_10m,wind_direction_10m,pressure_msl'
+                current: 'temperature_2m,relative_humidity_2m,apparent_temperature,cloud_cover,wind_speed_10m,wind_direction_10m,pressure_msl,uv_index'
             });
-            const url = `${base}?${params.toString()}`;
+            const url = `https://api.open-meteo.com/v1/forecast?${params}`;
             const res = await fetch(url);
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             return await res.json();
@@ -785,7 +1693,7 @@
         }
 
         // ============================================================
-        //  7. GEOCODING
+        // GEOCODING
         // ============================================================
         async function geocodeNominatim(query) {
             const url =
@@ -796,13 +1704,11 @@
             if (!data || data.length === 0) {
                 const fallbackUrl =
                     `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=10&accept-language=hi`;
-                const fallbackRes = await fetch(fallbackUrl);
-                if (!fallbackRes.ok) throw new Error('खोज विफल');
-                const fallbackData = await fallbackRes.json();
-                if (!fallbackData || fallbackData.length === 0) {
-                    throw new Error('कोई स्थान नहीं मिला, मैन्युअल निर्देशांक डालें');
-                }
-                return fallbackData;
+                const fbRes = await fetch(fallbackUrl);
+                if (!fbRes.ok) throw new Error('खोज विफल');
+                const fbData = await fbRes.json();
+                if (!fbData || fbData.length === 0) throw new Error('कोई स्थान नहीं मिला');
+                return fbData;
             }
             return data;
         }
@@ -814,42 +1720,35 @@
                 const res = await fetch(url);
                 if (!res.ok) throw new Error('रिवर्स खोज विफल');
                 const json = await res.json();
-                if (json && json.display_name) {
-                    const parts = json.display_name.split(',');
-                    return parts[0] || 'अज्ञात';
-                }
+                if (json && json.display_name) return json.display_name.split(',')[0] || 'अज्ञात';
                 return 'अज्ञात';
             } catch { return 'अज्ञात'; }
         }
 
         // ============================================================
-        //  8. ALERTS (USGS Earthquakes + GDACS)
+        // ALERTS (USGS + GDACS)
         // ============================================================
         async function fetchEarthquakeAlerts(lat, lon, radiusKm = 500) {
             const url =
                 `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&latitude=${lat}&longitude=${lon}&maxradiuskm=${radiusKm}&minmagnitude=2.5&orderby=time`;
             try {
-                const response = await fetch(url);
-                const data = await response.json();
+                const res = await fetch(url);
+                const data = await res.json();
                 return data.features || [];
-            } catch (error) {
-                console.error('Earthquake API error:', error);
-                return [];
-            }
+            } catch { return []; }
         }
 
         async function fetchGDACSAlerts(lat, lon, radiusKm = 500) {
-            const url = `https://www.gdacs.org/xml/rss.xml`;
+            const url = 'https://www.gdacs.org/xml/rss.xml';
             try {
-                const response = await fetch(url);
-                const text = await response.text();
+                const res = await fetch(url);
+                const text = await res.text();
                 const parser = new DOMParser();
                 const xml = parser.parseFromString(text, "text/xml");
                 const items = xml.querySelectorAll('item');
                 let alerts = [];
                 items.forEach(item => {
                     const title = item.querySelector('title')?.textContent || '';
-                    const description = item.querySelector('description')?.textContent || '';
                     const latNode = item.querySelector('geo\\:lat, lat');
                     const lonNode = item.querySelector('geo\\:long, long');
                     if (latNode && lonNode) {
@@ -858,83 +1757,95 @@
                         if (!isNaN(alertLat) && !isNaN(alertLon)) {
                             const distance = getDistance(lat, lon, alertLat, alertLon);
                             if (distance <= radiusKm) {
-                                let type = '⚠️ आपदा';
-                                if (title.toLowerCase().includes('flood')) type = '🌊 बाढ़';
-                                else if (title.toLowerCase().includes('cyclone')) type = '🌀 चक्रवात';
-                                else if (title.toLowerCase().includes('volcano')) type = '🌋 ज्वालामुखी';
-                                else if (title.toLowerCase().includes('drought')) type = '🏜️ सूखा';
-                                else if (title.toLowerCase().includes('wildfire') || title.toLowerCase().includes('fire'))
-                                    type = '🔥 जंगल की आग';
-                                alerts.push({ title, description, type, lat: alertLat, lon: alertLon,
-                                distance });
+                                let type = 'other',
+                                    emoji = '⚠️';
+                                const lower = title.toLowerCase();
+                                if (lower.includes('flood')) { type = 'flood';
+                                    emoji = '🌊'; } else if (lower.includes('cyclone')) { type = 'cyclone';
+                                    emoji = '🌀'; } else if (lower.includes('volcano')) { type = 'volcano';
+                                    emoji = '🌋'; } else if (lower.includes('drought')) { type = 'drought';
+                                    emoji = '🏜️'; } else if (lower.includes('wildfire') || lower.includes('fire')) { type =
+                                        'wildfire';
+                                    emoji = '🔥'; } else if (lower.includes('snow')) { type = 'snowfall';
+                                    emoji = '❄️'; }
+                                alerts.push({ title, type, emoji, distance });
                             }
                         }
                     }
                 });
                 return alerts;
-            } catch (error) {
-                console.error('GDACS API error:', error);
-                return [];
-            }
+            } catch { return []; }
         }
 
         async function checkAllAlerts(lat, lon) {
             try {
-                const [earthquakes, gdacsAlerts] = await Promise.all([
+                const [earthquakes, gdacs] = await Promise.all([
                     fetchEarthquakeAlerts(lat, lon),
                     fetchGDACSAlerts(lat, lon)
                 ]);
 
-                let alertHTML = '';
+                Object.values(alertElements).forEach(el => {
+                    el.classList.remove('active');
+                    el.querySelector('.alert-status').textContent = '✅ सुरक्षित';
+                });
+
                 let criticalMsg = '';
                 let hasCritical = false;
 
                 // Earthquakes
-                earthquakes.slice(0, 5).forEach(eq => {
+                let eqAlert = false;
+                earthquakes.slice(0, 3).forEach(eq => {
                     const mag = eq.properties.mag || 0;
-                    const place = eq.properties.place || 'अज्ञात';
-                    const time = new Date(eq.properties.time).toLocaleString('hi-IN');
+                    const place = eq.properties.place || '';
                     if (mag >= 4.0) {
+                        eqAlert = true;
                         hasCritical = true;
                         criticalMsg = `⚠️ भूकंप! तीव्रता ${mag} · ${place}`;
                     }
-                    alertHTML += `<div class="alert-item">🌍 भूकंप: तीव्रता ${mag} · ${place} (${time})</div>`;
                 });
-
-                // GDACS
-                gdacsAlerts.slice(0, 5).forEach(alert => {
-                    const distText = Math.round(alert.distance);
-                    if (alert.title.toLowerCase().includes('red')) {
-                        hasCritical = true;
-                        criticalMsg = `🔴 ${alert.type} चेतावनी! ${alert.title}`;
-                    }
-                    alertHTML +=
-                        `<div class="alert-item">${alert.type}: ${alert.title} (${distText} km दूर)</div>`;
-                });
-
-                if (!alertHTML) {
-                    alertHTML = '<div style="opacity:0.5;font-size:0.8rem;">✅ कोई सक्रिय आपदा चेतावनी नहीं</div>';
+                if (eqAlert) {
+                    alertElements.earthquake.classList.add('active');
+                    alertElements.earthquake.querySelector('.alert-status').textContent = '🔴 भूकंप!';
                 }
 
-                alertContainer.innerHTML = `<div class="alert-title">🌍 आपदा चेतावनियाँ</div>${alertHTML}`;
+                // GDACS
+                gdacs.forEach(alert => {
+                    const map = {
+                        'flood': 'flood',
+                        'cyclone': 'cyclone',
+                        'volcano': 'volcano',
+                        'drought': 'drought',
+                        'wildfire': 'wildfire',
+                        'snowfall': 'snowfall'
+                    };
+                    const key = map[alert.type] || null;
+                    if (key && alertElements[key]) {
+                        alertElements[key].classList.add('active');
+                        alertElements[key].querySelector('.alert-status').textContent =
+                            `🔴 ${Math.round(alert.distance)} km दूर`;
+                        if (alert.title.toLowerCase().includes('red')) {
+                            hasCritical = true;
+                            criticalMsg = `🚨 ${alert.emoji} गंभीर ${alert.title}`;
+                        }
+                        if (isLoggedIn) {
+                            sendNotification(`🚨 ${alert.emoji} ${alert.type} चेतावनी!`,
+                                `${alert.title} (${Math.round(alert.distance)} km)`
+                            );
+                        }
+                    }
+                });
 
-                // Critical alert banner
                 if (hasCritical && criticalMsg) {
                     criticalAlert.textContent = `🚨 ${criticalMsg}`;
                     criticalAlert.classList.add('active');
                 } else {
                     criticalAlert.classList.remove('active');
                 }
-
-            } catch (error) {
-                console.error('Alert check error:', error);
-                alertContainer.innerHTML =
-                    `<div class="alert-title">🌍 आपदा चेतावनियाँ</div><div style="opacity:0.5;font-size:0.8rem;">⚠️ चेतावनी डेटा लोड नहीं हो सका</div>`;
-            }
+            } catch (e) { console.error('Alert error:', e); }
         }
 
         // ============================================================
-        //  9. BAROMETER / STORM DETECTION
+        // BAROMETER
         // ============================================================
         function checkPressureDrop(pressure) {
             if (!pressure || pressure <= 0) return;
@@ -946,6 +1857,7 @@
                         stormAlert.classList.add('active');
                         stormAlert.textContent =
                             `⚡ तूफ़ान की संभावना! दबाव ${drop.toFixed(1)} hPa गिरा (${lastPressure.toFixed(1)} → ${pressure.toFixed(1)})`;
+                        if (isLoggedIn) sendNotification('⚡ तूफ़ान चेतावनी!', `दबाव ${drop.toFixed(1)} hPa गिरा`);
                     }
                 } else if (drop < -0.5) {
                     stormAlert.classList.remove('active');
@@ -964,72 +1876,61 @@
             if ('PressureSensor' in window) {
                 try {
                     const sensor = new PressureSensor({ frequency: 60 });
-                    sensor.addEventListener('reading', () => { checkPressureDrop(sensor.pressure); });
+                    sensor.addEventListener('reading', () => checkPressureDrop(sensor.pressure));
                     sensor.start();
-                    console.log('📱 बैरोमीटर सक्रिय');
-                } catch (e) {
-                    console.log('📱 बैरोमीटर अनुपलब्ध:', e.message);
-                }
-            } else {
-                console.log('📱 बैरोमीटर नहीं मिला');
+                } catch (e) { console.log('Barometer unavailable'); }
             }
         }
 
         // ============================================================
-        //  10. LOAD DATA (Main Function)
+        // LOAD DATA
         // ============================================================
-        async function loadData(lat, lon, cityName) {
+        async function loadData(lat, lon, cityName, silent = false) {
             currentLat = lat;
             currentLon = lon;
             if (cityName) currentCity = cityName;
             else {
-                try {
-                    currentCity = await reverseGeocode(lat, lon);
-                } catch {
-                    currentCity = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
-                }
+                try { currentCity = await reverseGeocode(lat, lon); } catch { currentCity = `${lat.toFixed(4)}, ${lon.toFixed(4)}`; }
             }
             locationDisplay.innerHTML = `📍 ${currentCity} · <small>IST (UTC+5:30)</small>`;
-
-            // Update map
             updateMap(lat, lon);
             savePinBtn.style.display = 'none';
+            if (userData) welcomeSub.textContent = `📍 ${currentCity} · अब अपडेट हो रहा है`;
 
-            content.innerHTML = '<div class="loading">⏳ डेटा लोड हो रहा है...</div>';
+            if (!silent) {
+                content.innerHTML = '<div class="loading">⏳ डेटा लोड हो रहा है...</div>';
+                solarContent.innerHTML = '';
+            }
 
             try {
                 const [weather, aqi] = await Promise.all([fetchWeather(lat, lon), fetchAQI(lat, lon)]);
                 weatherData = weather;
-
-                if (weather.current?.pressure_msl) {
-                    checkPressureDrop(weather.current.pressure_msl);
-                }
-
+                if (weather.current?.pressure_msl) checkPressureDrop(weather.current.pressure_msl);
                 renderUI(weather, aqi, lat, lon);
-                startCountdown();
+                renderSolar(weather, lat, lon);
+                if (!silent) startCountdown();
                 renderSavedChips();
-
-                // Fetch alerts
                 checkAllAlerts(lat, lon);
-
             } catch (err) {
-                content.innerHTML =
-                    `<div class="error">❌ त्रुटि: ${err.message}<br><small>कृपया पुनः प्रयास करें या मैन्युअल निर्देशांक डालें</small></div>`;
+                if (!silent) {
+                    content.innerHTML =
+                        `<div class="error">❌ त्रुटि: ${err.message}<br><small>कृपया पुनः प्रयास करें</small></div>`;
+                }
             }
         }
 
         // ============================================================
-        //  11. RENDER UI
+        // RENDER UI (Rain → Temperature → Humidity)
         // ============================================================
         function renderUI(weather, aqi, lat, lon) {
             const now = new Date();
             const current = weather.current_weather;
             const daily = weather.daily;
             const hourly = weather.hourly;
-            const currentExtra = weather.current || {};
+            const extra = weather.current || {};
 
             const temp = current.temperature || 0;
-            const feels = currentExtra.apparent_temperature || temp;
+            const feels = extra.apparent_temperature || temp;
             const tempFill = Math.min(100, Math.max(0, ((temp + 5) / 45) * 100));
             const tempColor = temp < 15 ? '#3b82f6' : temp < 25 ? '#22c55e' : temp < 35 ? '#facc15' : '#ef4444';
 
@@ -1041,40 +1942,38 @@
             const pm10 = aqi?.current?.pm10 || 0;
             const aqiInfo = getAQILevel(pm25);
 
-            // Rain timer & duration
-            let rainStartInfo = null;
-            let rainEndInfo = null;
-            let rainDuration = null;
-            const threshold = 0.2;
-            let firstIndex = -1;
-            let lastIndex = -1;
+            let rainStartInfo = null,
+                rainEndInfo = null,
+                rainDuration = null,
+                maxRain = 0;
+            let firstIdx = -1,
+                lastIdx = -1;
             for (let i = 0; i < hourly.time.length; i++) {
                 const t = new Date(hourly.time[i]);
-                if (t > now && hourly.precipitation[i] > threshold) {
-                    if (firstIndex === -1) firstIndex = i;
-                    lastIndex = i;
+                const precip = hourly.precipitation[i] || 0;
+                if (precip > maxRain) maxRain = precip;
+                if (t > now && precip > 0.2) {
+                    if (firstIdx === -1) firstIdx = i;
+                    lastIdx = i;
                 }
             }
-
-            if (firstIndex !== -1) {
-                const startTime = new Date(hourly.time[firstIndex]);
-                const endTime = new Date(hourly.time[lastIndex]);
-                rainStartInfo = { seconds: (startTime - now) / 1000, time: startTime, precip: hourly
-                        .precipitation[firstIndex] };
-                rainEndInfo = { time: endTime, precip: hourly.precipitation[lastIndex] };
+            if (firstIdx !== -1) {
+                const startTime = new Date(hourly.time[firstIdx]);
+                const endTime = new Date(hourly.time[lastIdx]);
+                rainStartInfo = { seconds: (startTime - now) / 1000, time: startTime };
+                rainEndInfo = { time: endTime };
                 rainDuration = (endTime - startTime) / 1000;
-
                 if (rainStartInfo.seconds <= 3600 && rainStartInfo.seconds > 0) {
                     rainAlert.classList.add('active');
-                    rainAlert.textContent = `🌧️ अगले ${Math.ceil(rainStartInfo.seconds/60)} मिनट में बारिश! तैयार रहें।`;
-                } else {
-                    rainAlert.classList.remove('active');
-                }
-            } else {
-                rainAlert.classList.remove('active');
-            }
+                    rainAlert.textContent = `🌧️ अगले ${Math.ceil(rainStartInfo.seconds/60)} मिनट में बारिश!`;
+                    if (isLoggedIn) sendNotification('🌧️ बारिश चेतावनी!', `अगले ${Math.ceil(rainStartInfo.seconds/60)} मिनट में`);
+                } else rainAlert.classList.remove('active');
+            } else rainAlert.classList.remove('active');
 
-            // Sun timer
+            const rainCat = getRainCategory(maxRain);
+            const uv = extra.uv_index || 0;
+            const sunCat = getSunCategory(uv, temp);
+
             function getSunTimer() {
                 const sunrise = new Date(daily.sunrise[0]);
                 const sunset = new Date(daily.sunset[0]);
@@ -1089,7 +1988,6 @@
             }
             const sunTimer = getSunTimer();
 
-            // Moon timer
             function getMoonTimer() {
                 let candidates = [];
                 if (daily.moonrise && daily.moonrise[0]) {
@@ -1102,20 +2000,19 @@
                     if (now > s) s.setDate(s.getDate() + 1);
                     candidates.push({ type: '🌘 चंद्रास्त', seconds: (s - now) / 1000, target: s });
                 }
-                if (candidates.length === 0) return { type: '🌙 चंद्र', seconds: Infinity, target: null };
+                if (!candidates.length) return { type: '🌙 चंद्र', seconds: Infinity, target: null };
                 candidates.sort((a, b) => a.seconds - b.seconds);
                 const pos = candidates.filter(c => c.seconds > 0);
-                if (pos.length === 0) return candidates[0];
-                return pos[0];
+                return pos.length ? pos[0] : candidates[0];
             }
             const moonTimer = getMoonTimer();
 
-            const humidity = currentExtra.relative_humidity_2m || 0;
-            const clouds = currentExtra.cloud_cover || 0;
+            const humidity = extra.relative_humidity_2m || 0;
+            const clouds = extra.cloud_cover || 0;
 
-            let rainDisplay = '☀️ 48h शुष्क';
-            let rainSec = null;
-            let rainProb = 0;
+            let rainDisplay = '☀️ 48h शुष्क',
+                rainSec = null,
+                rainProb = 0;
             if (rainStartInfo) {
                 rainSec = rainStartInfo.seconds;
                 rainProb = getProbability(rainSec);
@@ -1127,25 +2024,55 @@
 
             content.innerHTML = `
                 <div class="card-grid">
-                    <div class="card" onclick="toggleDetail(this, 'temp-detail')">
+                    <div class="card" onclick="toggleDetail(this,'rain-detail')">
+                        <div class="card-row">
+                            <span class="card-label"><span class="emoji">☔</span> वर्षा टाइमर</span>
+                            <span class="card-value">${rainStartInfo ? rainDisplay : '☀️ साफ़'}</span>
+                        </div>
+                        <div class="card-sub-text" style="font-weight:500;color:${rainCat.color};">${maxRain > 0 ? `${rainCat.emoji} ${rainCat.label} (${maxRain.toFixed(1)} mm/hr)` : '☀️ कोई वर्षा नहीं'}</div>
+                        ${rainStartInfo ? `
+                            <div class="card-sub-text">🌧️ पहली बूंद: ${rainStartInfo.time.toLocaleString('hi-IN',{hour:'2-digit',minute:'2-digit'})} · अवधि: ${rainDuration ? formatMinutes(rainDuration) : '--'} <span class="prob-badge">🎯 ${rainProb}%</span></div>
+                            ${rainDuration ? `<div class="card-sub-text" style="opacity:0.7;">☔ अंतिम बूंद: ${rainEndInfo ? rainEndInfo.time.toLocaleString('hi-IN',{hour:'2-digit',minute:'2-digit'}) : 'अज्ञात'}</div>` : ''}
+                        ` : `<div class="card-sub-text">अगले 48 घंटों में कोई बारिश नहीं</div>`}
+                        <div class="detail-panel" id="rain-detail">${rainStartInfo ? `
+                            🌧️ पहली बूंद: ${rainStartInfo.time.toLocaleString('hi-IN')}
+                            ⏱️ ${formatCountdown(rainSec)} बचा
+                            ☔ अवधि: ${rainDuration ? formatMinutes(rainDuration) : '--'}
+                            ${rainEndInfo ? `🌧️ अंतिम बूंद: ${rainEndInfo.time.toLocaleString('hi-IN')}` : ''}
+                            📊 संभावना: ${rainProb}%
+                            💧 तीव्रता: ${maxRain.toFixed(1)} mm/hr (${rainCat.label})
+                        ` : '☀️ 48 घंटे शुष्क'}</div>
+                    </div>
+
+                    <div class="card" onclick="toggleDetail(this,'temp-detail')">
                         <div class="card-row">
                             <span class="card-label"><span class="emoji">🌡️</span> तापमान</span>
                             <span class="card-value" style="color:${tempColor};">${Math.round(temp)}°C <span class="sub">${Math.round(feels)}° feels</span></span>
                         </div>
                         <div class="temp-meter"><div class="temp-fill" style="width:${tempFill}%;"></div></div>
-                        <div class="detail-panel" id="temp-detail">🌡️ वास्तविक: ${temp}°C\n🌬️ महसूस: ${feels}°C\n💧 नमी: ${humidity}%</div>
+                        <div class="card-sub-text" style="color:${sunCat.color};">${sunCat.emoji} ${sunCat.label} · UV ${uv.toFixed(1)}</div>
+                        <div class="detail-panel" id="temp-detail">🌡️ वास्तविक: ${temp}°C\n🌬️ महसूस: ${feels}°C\n☀️ UV: ${uv.toFixed(1)}\n📊 सूर्य: ${sunCat.label}</div>
                     </div>
 
-                    <div class="card" onclick="toggleDetail(this, 'aqi-detail')">
+                    <div class="card" onclick="toggleDetail(this,'humidity-detail')">
+                        <div class="card-row">
+                            <span class="card-label"><span class="emoji">💧</span> आर्द्रता</span>
+                            <span class="card-value">${Math.round(humidity)}% <span class="sub">☁️ ${Math.round(clouds)}% बादल</span></span>
+                        </div>
+                        <div class="card-sub-text">नमी: ${Math.round(humidity)}% · बादल: ${Math.round(clouds)}%</div>
+                        <div class="detail-panel" id="humidity-detail">💧 आर्द्रता: ${humidity}%\n☁️ बादल: ${clouds}%</div>
+                    </div>
+
+                    <div class="card" onclick="toggleDetail(this,'aqi-detail')">
                         <div class="card-row">
                             <span class="card-label"><span class="emoji">🧪</span> वायु गुणवत्ता</span>
                             <span class="card-value"><span class="aqi-badge" style="background:${aqiInfo.color};color:#000;">${aqiInfo.label}</span> <span class="sub">PM2.5 ${Math.round(pm25)}</span></span>
                         </div>
                         <div class="card-sub-text">PM10: ${Math.round(pm10)} µg/m³</div>
-                        <div class="detail-panel" id="aqi-detail">🧪 AQI स्तर: ${aqiInfo.label}\nPM2.5: ${pm25.toFixed(1)} µg/m³\nPM10: ${pm10.toFixed(1)} µg/m³</div>
+                        <div class="detail-panel" id="aqi-detail">🧪 AQI: ${aqiInfo.label}\nPM2.5: ${pm25.toFixed(1)}\nPM10: ${pm10.toFixed(1)}</div>
                     </div>
 
-                    <div class="card" onclick="toggleDetail(this, 'wind-detail')">
+                    <div class="card" onclick="toggleDetail(this,'wind-detail')">
                         <div class="card-row">
                             <span class="card-label"><span class="emoji">💨</span> हवा</span>
                             <span class="card-value">${windSpeed.toFixed(1)} km/h <span class="sub">${windCardinal}</span></span>
@@ -1154,63 +2081,31 @@
                         <div class="detail-panel" id="wind-detail">💨 गति: ${windSpeed.toFixed(1)} km/h\n🧭 दिशा: ${windCardinal} (${Math.round(windDir)}°)</div>
                     </div>
 
-                    <div class="card" onclick="toggleDetail(this, 'rain-detail')">
-                        <div class="card-row">
-                            <span class="card-label"><span class="emoji">☔</span> वर्षा टाइमर</span>
-                            <span class="card-value">${rainStartInfo ? rainDisplay : '☀️ साफ़'}</span>
-                        </div>
-                        ${rainStartInfo ? `
-                            <div class="card-sub-text">
-                                🌧️ पहली बूंद: ${rainStartInfo.time.toLocaleString('hi-IN', { hour: '2-digit', minute: '2-digit' })}
-                                ${rainDuration ? ` · अवधि: ${formatMinutes(rainDuration)}` : ''}
-                                <span class="prob-badge">🎯 ${rainProb}% संभावना</span>
-                            </div>
-                            ${rainDuration ? `<div class="card-sub-text" style="opacity:0.7;">☔ अंतिम बूंद: ${rainEndInfo ? rainEndInfo.time.toLocaleString('hi-IN', { hour: '2-digit', minute: '2-digit' }) : 'अज्ञात'}</div>` : ''}
-                        ` : `<div class="card-sub-text">अगले 48 घंटों में कोई बारिश नहीं</div>`}
-                        <div class="detail-panel" id="rain-detail">${rainStartInfo ? `
-                            🌧️ पहली बूंद: ${rainStartInfo.time.toLocaleString('hi-IN')}
-                            ⏱️ ${formatCountdown(rainSec)} बचा
-                            ${rainDuration ? `☔ अवधि: ${formatMinutes(rainDuration)} (${Math.round(rainDuration/60)} मिनट)` : ''}
-                            ${rainEndInfo ? `🌧️ अंतिम बूंद: ${rainEndInfo.time.toLocaleString('hi-IN')}` : ''}
-                            📊 संभावना: ${rainProb}%
-                            📈 स्रोत: Open-Meteo Ensemble (51 मॉडल)
-                        ` : '☀️ 48 घंटे शुष्क रहेंगे'}</div>
-                    </div>
-
-                    <div class="card" onclick="toggleDetail(this, 'sun-detail')">
+                    <div class="card" onclick="toggleDetail(this,'sun-detail')">
                         <div class="card-row">
                             <span class="card-label"><span class="emoji">${sunTimer.type === '🌅 सूर्योदय' ? '🌅' : '🌇'}</span> ${sunTimer.type}</span>
                             <span class="card-value">${formatCountdown(sunTimer.seconds)} <span class="sub">बचा</span></span>
                         </div>
                         <div class="card-sub-text">☀️ उदय: ${daily.sunrise[0].slice(11,16)} · 🌇 अस्त: ${daily.sunset[0].slice(11,16)}</div>
-                        <div class="detail-panel" id="sun-detail">🌅 अगला: ${sunTimer.type}\n⏱️ ${formatCountdown(sunTimer.seconds)} शेष\n🕒 लक्ष्य: ${sunTimer.target ? sunTimer.target.toLocaleString('hi-IN') : 'N/A'}</div>
+                        <div class="detail-panel" id="sun-detail">🌅 अगला: ${sunTimer.type}\n⏱️ ${formatCountdown(sunTimer.seconds)} शेष\n🕒 ${sunTimer.target ? sunTimer.target.toLocaleString('hi-IN') : 'N/A'}</div>
                     </div>
 
-                    <div class="card" onclick="toggleDetail(this, 'moon-detail')">
+                    <div class="card" onclick="toggleDetail(this,'moon-detail')">
                         <div class="card-row">
                             <span class="card-label"><span class="emoji">🌙</span> चंद्र टाइमर</span>
                             <span class="card-value">${isFinite(moonTimer.seconds) ? formatCountdown(moonTimer.seconds) : '—'} <span class="sub">बचा</span></span>
                         </div>
-                        <div class="card-sub-text">${moonTimer.type} · ${moonTimer.target ? moonTimer.target.toLocaleString('hi-IN', { hour: '2-digit', minute: '2-digit' }) : 'डेटा नहीं'}</div>
+                        <div class="card-sub-text">${moonTimer.type} · ${moonTimer.target ? moonTimer.target.toLocaleString('hi-IN',{hour:'2-digit',minute:'2-digit'}) : 'डेटा नहीं'}</div>
                         <div class="detail-panel" id="moon-detail">🌙 घटना: ${moonTimer.type}\n⏱️ ${isFinite(moonTimer.seconds) ? formatCountdown(moonTimer.seconds) : '∞'} शेष\n🕒 ${moonTimer.target ? moonTimer.target.toLocaleString('hi-IN') : 'अनुपलब्ध'}</div>
                     </div>
 
-                    <div class="card" onclick="toggleDetail(this, 'extra-detail')">
-                        <div class="card-row">
-                            <span class="card-label"><span class="emoji">💧</span> आर्द्रता / बादल</span>
-                            <span class="card-value">${Math.round(humidity)}% <span class="sub">☁️ ${Math.round(clouds)}%</span></span>
-                        </div>
-                        <div class="card-sub-text">नमी: ${Math.round(humidity)}% · बादल: ${Math.round(clouds)}%</div>
-                        <div class="detail-panel" id="extra-detail">💧 आर्द्रता: ${humidity}%\n☁️ बादल: ${clouds}%</div>
-                    </div>
-
-                    <div class="card" onclick="toggleDetail(this, 'pressure-detail')">
+                    <div class="card" onclick="toggleDetail(this,'pressure-detail')">
                         <div class="card-row">
                             <span class="card-label"><span class="emoji">📊</span> हवा का दबाव</span>
-                            <span class="card-value">${currentExtra.pressure_msl ? currentExtra.pressure_msl.toFixed(1) : '—'} hPa</span>
+                            <span class="card-value">${extra.pressure_msl ? extra.pressure_msl.toFixed(1) : '—'} hPa</span>
                         </div>
                         <div class="card-sub-text">${lastPressure ? `पिछला: ${lastPressure.toFixed(1)} hPa` : 'बैरोमीटर सक्रिय'}</div>
-                        <div class="detail-panel" id="pressure-detail">📊 दबाव: ${currentExtra.pressure_msl ? currentExtra.pressure_msl.toFixed(1) : 'अनुपलब्ध'} hPa\n${lastPressure ? `पिछला रीडिंग: ${lastPressure.toFixed(1)} hPa` : ''}\n⚡ 2+ hPa गिरावट = तूफ़ान संभावना</div>
+                        <div class="detail-panel" id="pressure-detail">📊 दबाव: ${extra.pressure_msl ? extra.pressure_msl.toFixed(1) : 'अनुपलब्ध'} hPa\n${lastPressure ? `पिछला: ${lastPressure.toFixed(1)} hPa` : ''}\n⚡ 2+ hPa गिरावट = तूफ़ान</div>
                     </div>
                 </div>
             `;
@@ -1224,7 +2119,40 @@
         }
 
         // ============================================================
-        //  12. COUNTDOWN TICKER
+        // RENDER SOLAR
+        // ============================================================
+        function renderSolar(weather, lat, lon) {
+            const daily = weather.daily;
+            const extra = weather.current || {};
+            const uv = extra.uv_index || 0;
+            const solarRad = daily.shortwave_radiation_sum ? (daily.shortwave_radiation_sum[0] / 12) : 0;
+            const lux = Math.round(solarRad * 100);
+
+            solarContent.innerHTML = `
+                <div class="section-title"><span>☀️ सौर ऊर्जा & प्रकाश</span><span class="line"></span></div>
+                <div class="card-grid">
+                    <div class="card" onclick="toggleDetail(this,'solar-detail')">
+                        <div class="card-row">
+                            <span class="card-label"><span class="emoji">☀️</span> सौर विकिरण</span>
+                            <span class="card-value">${solarRad > 0 ? Math.round(solarRad)+' W/m²' : '--'}</span>
+                        </div>
+                        <div class="card-sub-text">💡 अनुमानित रोशनी: ${lux > 0 ? lux.toLocaleString()+' Lux' : '--'}</div>
+                        <div class="detail-panel" id="solar-detail">☀️ सौर विकिरण: ${solarRad > 0 ? Math.round(solarRad)+' W/m²' : '--'}\n💡 प्रकाश: ${lux > 0 ? lux.toLocaleString()+' Lux' : '--'}\n🌞 दैनिक कुल: ${daily.shortwave_radiation_sum ? daily.shortwave_radiation_sum[0].toFixed(1)+' W/m²/day' : '--'}</div>
+                    </div>
+                    <div class="card" onclick="toggleDetail(this,'uv-detail')">
+                        <div class="card-row">
+                            <span class="card-label"><span class="emoji">🛡️</span> UV सूचकांक</span>
+                            <span class="card-value" style="color:${uv > 6 ? '#ef4444' : uv > 3 ? '#facc15' : '#4ade80'};">${uv.toFixed(1)}</span>
+                        </div>
+                        <div class="card-sub-text">${uv > 6 ? '⚠️ तेज़ UV, सुरक्षा आवश्यक' : '✅ सुरक्षित'}</div>
+                        <div class="detail-panel" id="uv-detail">🛡️ UV सूचकांक: ${uv.toFixed(1)}\n${uv > 6 ? '⚠️ सनस्क्रीन & छाया की सलाह' : '✅ सामान्य गतिविधियाँ सुरक्षित'}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // ============================================================
+        // COUNTDOWN TICKER
         // ============================================================
         function startCountdown() {
             if (countdownInterval) clearInterval(countdownInterval);
@@ -1232,10 +2160,9 @@
                 const now = new Date();
                 const cards = document.querySelectorAll('.card');
                 if (cards.length < 7) return;
-
                 if (window._rainTime) {
                     const diff = (window._rainTime - now) / 1000;
-                    const rainCard = cards[3];
+                    const rainCard = cards[0];
                     if (rainCard && diff > 0) {
                         const val = rainCard.querySelector('.card-value');
                         if (val) val.innerHTML = `⏳ ${formatCountdown(diff)}`;
@@ -1244,19 +2171,17 @@
                         if (val) val.innerHTML = '🌧️ बारिश हो रही!';
                     }
                 }
-
                 if (window._sunTarget) {
                     const diff = (window._sunTarget - now) / 1000;
-                    const sunCard = cards[4];
+                    const sunCard = cards[5];
                     if (sunCard && diff > 0) {
                         const val = sunCard.querySelector('.card-value');
                         if (val) val.innerHTML = `${formatCountdown(diff)} <span class="sub">बचा</span>`;
                     }
                 }
-
                 if (window._moonTarget && isFinite(window._moonSec)) {
                     const diff = (window._moonTarget - now) / 1000;
-                    const moonCard = cards[5];
+                    const moonCard = cards[6];
                     if (moonCard && diff > 0) {
                         const val = moonCard.querySelector('.card-value');
                         if (val) val.innerHTML = `${formatCountdown(diff)} <span class="sub">बचा</span>`;
@@ -1266,19 +2191,19 @@
         }
 
         // ============================================================
-        //  13. TOGGLE DETAIL
+        // TOGGLE DETAIL
         // ============================================================
         function toggleDetail(card, id) {
             const panel = document.getElementById(id);
             if (!panel) return;
-            const isOpen = panel.classList.contains('open');
+            const open = panel.classList.contains('open');
             document.querySelectorAll('.detail-panel').forEach(p => p.classList.remove('open'));
-            if (!isOpen) panel.classList.add('open');
+            if (!open) panel.classList.add('open');
         }
         window.toggleDetail = toggleDetail;
 
         // ============================================================
-        //  14. SEARCH, HOME, REFRESH, MANUAL
+        // SEARCH, HOME, REFRESH, MANUAL
         // ============================================================
         async function handleSearch() {
             const query = searchInput.value.trim();
@@ -1319,11 +2244,8 @@
         });
 
         function handleRefresh() {
-            if (isHomeMode) {
-                getLocationAndFetch();
-            } else {
-                loadData(currentLat, currentLon, currentCity);
-            }
+            if (isHomeMode) getLocationAndFetch();
+            else loadData(currentLat, currentLon, currentCity);
             lastPressure = null;
             pressureDropStart = null;
             stormAlert.classList.remove('active');
@@ -1338,32 +2260,27 @@
             const lat = parseFloat(latInput.value);
             const lon = parseFloat(lonInput.value);
             if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-                alert('कृपया सही अक्षांश (-90 से 90) और देशांतर (-180 से 180) डालें');
+                alert('सही अक्षांश (-90 से 90) और देशांतर (-180 से 180) डालें');
                 return;
             }
             loadData(lat, lon, `मैन्युअल (${lat.toFixed(4)}, ${lon.toFixed(4)})`);
             isHomeMode = false;
         }
 
-        function getLocationAndFetch() {
+        function getLocationAndFetch(silent = false) {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
-                    (pos) => {
-                        const { latitude, longitude } = pos.coords;
-                        loadData(latitude, longitude, null);
-                    },
-                    (err) => {
-                        console.warn('GPS fallback:', err);
-                        loadData(28.6139, 77.2090, 'दिल्ली (डिफ़ॉल्ट)');
-                    }, { enableHighAccuracy: true, timeout: 8000 }
+                    (pos) => loadData(pos.coords.latitude, pos.coords.longitude, null, silent),
+                    () => loadData(28.6139, 77.2090, 'दिल्ली (डिफ़ॉल्ट)', silent),
+                    { enableHighAccuracy: true, timeout: 8000 }
                 );
             } else {
-                loadData(28.6139, 77.2090, 'दिल्ली (डिफ़ॉल्ट)');
+                loadData(28.6139, 77.2090, 'दिल्ली (डिफ़ॉल्ट)', silent);
             }
         }
 
         // ============================================================
-        //  15. EVENT LISTENERS & INIT
+        // EVENT LISTENERS & INIT
         // ============================================================
         searchBtn.addEventListener('click', handleSearch);
         searchInput.addEventListener('keydown', (e) => {
@@ -1375,21 +2292,27 @@
         manualGoBtn.addEventListener('click', handleManualGo);
         latInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleManualGo(); });
         lonInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleManualGo(); });
+        notifAllowBtn.addEventListener('click', requestNotificationPermission);
 
-        // Auto refresh every 15 minutes
-        setInterval(() => {
-            if (isHomeMode) {
-                getLocationAndFetch();
-            } else {
-                loadData(currentLat, currentLon, currentCity);
-            }
-        }, 15 * 60 * 1000);
+        if ('Notification' in window && Notification.permission === 'granted') {
+            notifBanner.style.display = 'none';
+        }
 
-        // Initialize
+        // Load user data
+        const hasUser = loadUserData();
+        if (hasUser) {
+            updateUIForUser();
+            loginOverlay.classList.remove('active');
+        } else {
+            loginOverlay.classList.add('active');
+        }
+
         renderSavedChips();
         initBarometer();
         getLocationAndFetch();
-        // Map will be initialized when loadData calls updateMap
+        startAlertReminder();
+
+        console.log('🌦️ मौसम टाइमर v5.0 तैयार है।');
     </script>
 </body>
 </html>
