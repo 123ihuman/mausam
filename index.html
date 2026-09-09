@@ -624,7 +624,7 @@ const menuAbout = document.getElementById('menuAbout');
 // ============================================================
 // 3. STATE
 // ============================================================
-let currentLat = 28.6139, currentLon = 77.2090, currentCity = "दिल्ली";
+let currentLat = 0, currentLon = 0, currentCity = "अज्ञात";
 let isLoggedIn = false, userData = null;
 let confirmationResult = null;
 let map = null, marker = null, isMapInitialized = false;
@@ -1114,7 +1114,7 @@ async function checkAllAlerts(lat, lon) {
         let criticalMsg = '', hasCritical = false, eqAlert = false;
         earthquakes.slice(0,3).forEach(eq => {
             const mag = eq.properties.mag || 0;
-            if (mag >= 4.0) { eqAlert = true; hasCritical = true; criticalMsg = `⚠️ भूकंप! तीव्रता ${mag}`; }
+            if (mag >= 7.0) { eqAlert = true; hasCritical = true; criticalMsg = `⚠️ भूकंप! तीव्रता ${mag}`; }
         });
         if (eqAlert) {
             alertEls.earthquake.classList.add('active');
@@ -1241,6 +1241,7 @@ function initApp() {
     const cached = getCachedWeather();
     const cachedLoc = getCachedLocation();
 
+    // 1. If we have cached weather, show it instantly
     if (cached) {
         currentLat = cached.lat; currentLon = cached.lon;
         currentCity = cached.city || currentCity;
@@ -1254,30 +1255,42 @@ function initApp() {
         } catch(e) {}
     }
 
-    let startLat = (cachedLoc && cachedLoc.lat) || (cached && cached.lat) || 28.6139;
-    let startLon = (cachedLoc && cachedLoc.lon) || (cached && cached.lon) || 77.2090;
-    let startCity = (cachedLoc && cachedLoc.city) || (cached && cached.city) || 'दिल्ली (डिफ़ॉल्ट)';
-    currentCity = startCity;
-
-    loadWeatherData(startLat, startLon, startCity, hasRenderedOnce);
-    renderSavedChips();
-
+    // 2. Try to get GPS location (ALWAYS try, no Delhi fallback)
     if (navigator.geolocation) {
+        locationDisplay.innerHTML = '📍 स्थान प्राप्त कर रहा है...';
         navigator.geolocation.getCurrentPosition(
             (pos) => {
-                const newLat = pos.coords.latitude, newLon = pos.coords.longitude;
-                if (Math.abs(newLat - currentLat) > 0.01 || Math.abs(newLon - currentLon) > 0.01) {
-                    reverseGeocode(newLat, newLon).then(name => {
-                        const city = name || 'आपका स्थान';
-                        cacheLocation(newLat, newLon, city);
-                        loadWeatherData(newLat, newLon, city, true);
-                    }).catch(() => loadWeatherData(newLat, newLon, 'आपका स्थान', true));
+                const newLat = pos.coords.latitude;
+                const newLon = pos.coords.longitude;
+                reverseGeocode(newLat, newLon).then(name => {
+                    const city = name || 'आपका स्थान';
+                    cacheLocation(newLat, newLon, city);
+                    // Force reload with GPS location (silent if we already have cached data)
+                    loadWeatherData(newLat, newLon, city, hasRenderedOnce);
+                }).catch(() => {
+                    loadWeatherData(newLat, newLon, 'आपका स्थान', hasRenderedOnce);
+                });
+            },
+            (err) => {
+                // GPS FAILED – show error message, NOT Delhi
+                console.warn('⚠️ GPS error:', err.message);
+                locationDisplay.innerHTML = '📍 स्थान नहीं मिला · GPS चालू करें';
+                // If we have cached data, keep it; otherwise show nothing
+                if (!hasRenderedOnce) {
+                    content.innerHTML = `<div class="error">❌ स्थान नहीं मिला<br><small>कृपया GPS चालू करें या मैन्युअल निर्देशांक डालें</small></div>`;
                 }
             },
-            () => {},
-            { timeout: 5000, maximumAge: 5 * 60 * 1000, enableHighAccuracy: false }
+            { timeout: 8000, enableHighAccuracy: true, maximumAge: 0 }
         );
+    } else {
+        // No GPS support at all
+        locationDisplay.innerHTML = '📍 GPS समर्थित नहीं · मैन्युअल डालें';
+        if (!hasRenderedOnce) {
+            content.innerHTML = `<div class="error">❌ GPS समर्थित नहीं<br><small>कृपया मैन्युअल निर्देशांक डालें</small></div>`;
+        }
     }
+
+    renderSavedChips();
     setTimeout(() => initMap(currentLat, currentLon), 300);
 }
 // ============================================================
@@ -1661,13 +1674,24 @@ document.getElementById('homeBtn').addEventListener('click', function() {
             (pos) => {
                 reverseGeocode(pos.coords.latitude, pos.coords.longitude).then(name => {
                     loadWeatherData(pos.coords.latitude, pos.coords.longitude, name || 'आपका स्थान', false);
+                }).catch(() => {
+                    loadWeatherData(pos.coords.latitude, pos.coords.longitude, 'आपका स्थान', false);
                 });
             },
-            () => loadWeatherData(28.6139, 77.2090, 'दिल्ली (डिफ़ॉल्ट)', false),
-            { timeout: 5000 }
+            (err) => {
+                // GPS failed – show error, not Delhi
+                console.warn('Home GPS error:', err);
+                locationDisplay.innerHTML = '📍 स्थान नहीं मिला · GPS चालू करें';
+                if (!hasRenderedOnce) {
+                    content.innerHTML = `<div class="error">❌ स्थान नहीं मिला<br><small>कृपया GPS चालू करें या मैन्युअल निर्देशांक डालें</small></div>`;
+                }
+            },
+            { timeout: 5000, enableHighAccuracy: true }
         );
     } else {
-        loadWeatherData(28.6139, 77.2090, 'दिल्ली (डिफ़ॉल्ट)', false);
+        // No GPS support
+        locationDisplay.innerHTML = '📍 GPS समर्थित नहीं · मैन्युअल डालें';
+        content.innerHTML = `<div class="error">❌ GPS समर्थित नहीं<br><small>कृपया मैन्युअल निर्देशांक डालें</small></div>`;
     }
 });
 document.getElementById('manualGoBtn').addEventListener('click', function() {
