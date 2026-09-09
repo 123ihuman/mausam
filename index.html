@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🌦️ मौसम टाइमर – सुपरफास्ट</title>
+    <title>🌦️ मौसम टाइमर – ग्लोबल</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <style>
+        /* ===== RESET & BASE ===== */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: 'Segoe UI', system-ui, sans-serif;
@@ -16,18 +17,14 @@
             padding: 12px;
             color: #fff;
         }
-        .container { max-width: 520px; margin: 0 auto; position: relative; }
+        .container { max-width: 520px; margin: 0 auto; }
 
         /* ===== TOP BAR ===== */
         .top-bar {
-            display: flex;
-            gap: 5px; align-items: center;
-            background: rgba(255,255,255,0.07);
-            backdrop-filter: blur(8px);
-            border-radius: 40px;
-            padding: 4px 4px 4px 14px;
-            border: 1px solid rgba(255,255,255,0.06);
-            margin-bottom: 8px;
+            display: flex; gap: 5px; align-items: center;
+            background: rgba(255,255,255,0.07); backdrop-filter: blur(8px);
+            border-radius: 40px; padding: 4px 4px 4px 14px;
+            border: 1px solid rgba(255,255,255,0.06); margin-bottom: 8px;
             flex-wrap: wrap;
         }
         .top-bar input {
@@ -36,10 +33,9 @@
         }
         .top-bar input::placeholder { color: rgba(255,255,255,0.35); }
         .top-bar button {
-            background: rgba(255,255,255,0.1);
-            border: none; color: #fff; padding: 5px 10px; border-radius: 30px;
-            font-size: 0.8rem; cursor: pointer; transition: 0.2s;
-            white-space: nowrap; font-weight: 600;
+            background: rgba(255,255,255,0.1); border: none; color: #fff;
+            padding: 5px 10px; border-radius: 30px; font-size: 0.8rem;
+            cursor: pointer; white-space: nowrap; font-weight: 600;
         }
         .top-bar button:active { transform: scale(0.95); background: rgba(255,255,255,0.2); }
         .top-bar .refresh-btn { background: rgba(34,197,94,0.25); }
@@ -80,7 +76,6 @@
             border-radius: 18px; padding: 14px 16px;
             border: 1px solid rgba(255,255,255,0.04);
             cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-            transition: 0.3s;
         }
         .card:active { transform: scale(0.98); }
         .card-row { display: flex; justify-content: space-between; align-items: center; }
@@ -107,7 +102,7 @@
         .critical-alert.active { display: block; }
 
         .alert-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
-        .alert-category { background: rgba(255,255,255,0.04); border-radius: 14px; padding: 10px 12px; border: 1px solid rgba(255,255,255,0.05); text-align: center; transition: 0.3s; }
+        .alert-category { background: rgba(255,255,255,0.04); border-radius: 14px; padding: 10px 12px; border: 1px solid rgba(255,255,255,0.05); text-align: center; }
         .alert-category .alert-icon { font-size: 1.8rem; }
         .alert-category .alert-name { font-size: 0.65rem; opacity: 0.6; margin-top: 2px; }
         .alert-category .alert-status { font-size: 0.55rem; margin-top: 4px; padding: 2px 8px; border-radius: 30px; display: inline-block; background: rgba(34,197,94,0.15); color: #4ade80; }
@@ -128,7 +123,6 @@
         .manual-coords button { background: rgba(59,130,246,0.2); border: none; color: #fff; padding: 4px 12px; border-radius: 30px; font-size: 0.7rem; cursor: pointer; }
 
         .save-pin-btn { margin: 8px auto 12px; display: none; background: rgba(34,197,94,0.2); border: 1px solid rgba(34,197,94,0.3); color: #fff; padding: 8px 16px; border-radius: 30px; cursor: pointer; font-size: 0.85rem; width: 100%; text-align: center; }
-        .save-pin-btn:active { transform: scale(0.97); }
 
         .notif-banner { background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.1); border-radius: 12px; padding: 8px 14px; margin-bottom: 10px; font-size: 0.7rem; opacity: 0.7; display: flex; justify-content: space-between; align-items: center; }
         .notif-banner button { background: rgba(59,130,246,0.2); border: none; color: #93c5fd; padding: 4px 12px; border-radius: 30px; font-size: 0.7rem; cursor: pointer; }
@@ -211,15 +205,13 @@
         .login-box .tab-row button {
             flex: 1; padding: 8px; border-radius: 8px; border: none;
             color: #fff; font-weight: 600; cursor: pointer;
-            background: rgba(255,255,255,0.05); transition: 0.2s;
+            background: rgba(255,255,255,0.05);
         }
         .login-box .tab-row button.active { background: rgba(59,130,246,0.2); }
         .login-box .switch-link { text-align: center; margin-top: 10px; font-size: 0.8rem; opacity: 0.6; cursor: pointer; color: #93c5fd; }
-        .login-box .switch-link:hover { opacity: 1; }
         .login-box .user-info { text-align: center; padding: 10px 0; color: #4ade80; }
         .login-box .logout-btn { background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.2); color: #fca5a5; padding: 8px 16px; border-radius: 30px; cursor: pointer; font-size: 0.8rem; margin-top: 10px; display: inline-block; }
 
-        /* ===== DRAWER ===== */
         .drawer-overlay {
             display: none;
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -248,9 +240,8 @@
             background: rgba(255,255,255,0.03);
             border: 1px solid rgba(255,255,255,0.04);
             cursor: pointer; display: flex; align-items: center; gap: 12px;
-            font-size: 0.9rem; transition: 0.2s;
+            font-size: 0.9rem;
         }
-        .drawer .menu-item:active { transform: scale(0.97); background: rgba(255,255,255,0.08); }
         .drawer .menu-item .icon { font-size: 1.2rem; }
         .drawer .menu-item.danger { color: #fca5a5; border-color: rgba(239,68,68,0.1); }
 
@@ -374,7 +365,9 @@
     <div class="rain-alert" id="rainAlert">🌧️ अगले 1 घंटे में बारिश की संभावना! तैयार रहें।</div>
 
     <!-- Weather Cards -->
-    <div id="content"><div class="loading">⏳ मौसम डेटा लोड हो रहा है...</div></div>
+    <div id="content">
+        <div class="loading">⏳ लॉगिन करें और मौसम देखें</div>
+    </div>
 
     <!-- Solar & Light -->
     <div id="solarContent"></div>
@@ -403,15 +396,14 @@
         </div>
     </div>
 
-    <div class="footer">🔁 हर 15 मिनट में अपडेट · Open-Meteo + USGS + GDACS · v5.1 (सुपरफास्ट)</div>
+    <div class="footer">🔁 हर 15 मिनट में अपडेट · Open-Meteo + USGS + GDACS · v6.0 (ग्लोबल)</div>
 </div>
-
 <!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
 // ============================================================
-// FIREBASE CONFIG
+// FIREBASE CONFIG (YOUR REAL CONFIG)
 // ============================================================
 const firebaseConfig = {
     apiKey: "AIzaSyCwcG7s1j1SFJbDOh8FBsEpc6YWv39qX9k",
@@ -426,15 +418,8 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 
 // ============================================================
-// GLOBAL STATE
+// DOM REFS
 // ============================================================
-let currentLat = 28.6139, currentLon = 77.2090, currentCity = "दिल्ली";
-let isLoggedIn = false, userData = null, confirmationResult = null;
-let map = null, marker = null, isMapInitialized = false;
-let countdownInterval = null, alertCheckInterval = null;
-let lastPressure = null, pressureDropStart = null;
-
-// DOM refs
 const loginOverlay = document.getElementById('loginOverlay');
 const content = document.getElementById('content');
 const solarContent = document.getElementById('solarContent');
@@ -452,7 +437,6 @@ const closeDrawerBtn = document.getElementById('closeDrawerBtn');
 const notifAllowBtn = document.getElementById('notifAllowBtn');
 const notifBanner = document.getElementById('notifBanner');
 
-// Login elements
 const tabPhone = document.getElementById('tabPhone');
 const tabLocal = document.getElementById('tabLocal');
 const phoneSection = document.getElementById('phoneSection');
@@ -471,7 +455,16 @@ const localStatus = document.getElementById('localStatus');
 const photoInput = document.getElementById('photoInput');
 const avatarPreview = document.getElementById('avatarPreview');
 const logoutBtn = document.getElementById('logoutBtn');
-const loggedInContent = document.getElementById('loggedInContent');
+
+// ============================================================
+// STATE
+// ============================================================
+let currentLat = 28.6139, currentLon = 77.2090, currentCity = "दिल्ली";
+let isLoggedIn = false, userData = null, confirmationResult = null;
+let map = null, marker = null, isMapInitialized = false;
+let countdownInterval = null;
+let lastPressure = null;
+let pressureDropStart = null;
 
 // ============================================================
 // USER PERSISTENCE
@@ -492,12 +485,7 @@ function loadUserData() {
 }
 
 function saveUserData(name, phone, photo, password) {
-    userData = {
-        name: name || 'उपयोगकर्ता',
-        phone: phone || '',
-        photo: photo || '',
-        password: password || ''
-    };
+    userData = { name: name || 'उपयोगकर्ता', phone: phone || '', photo: photo || '', password: password || '' };
     localStorage.setItem('weather_user', JSON.stringify(userData));
     isLoggedIn = true;
     updateUIForUser();
@@ -568,7 +556,7 @@ switchToLocal.onclick = function() { tabLocal.click(); };
 switchToPhone.onclick = function() { tabPhone.click(); };
 
 // ============================================================
-// PHONE OTP (FIXED)
+// PHONE OTP
 // ============================================================
 sendSmsBtn.onclick = function() {
     const phone = phoneInput.value.trim();
@@ -643,7 +631,7 @@ verifyOtpBtn.onclick = function() {
 };
 
 // ============================================================
-// LOCAL SIGNUP/LOGIN
+// LOCAL LOGIN
 // ============================================================
 localLoginBtn.onclick = function() {
     const name = localNameInput.value.trim();
@@ -686,7 +674,6 @@ localLoginBtn.onclick = function() {
     loadWeatherData();
 };
 
-// Photo upload
 photoInput.addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (file) {
@@ -715,13 +702,11 @@ drawerOverlay.addEventListener('click', function(e) {
     if (e.target === drawerOverlay) drawerOverlay.classList.remove('active');
 });
 
-// Logout from drawer
 document.querySelector('.drawer .menu-item.danger').addEventListener('click', function() {
     drawerOverlay.classList.remove('active');
     if (confirm('क्या आप लॉगआउट करना चाहते हैं?')) logoutUser();
 });
 
-// Share
 document.querySelector('.drawer .menu-item:nth-child(3)').addEventListener('click', function() {
     drawerOverlay.classList.remove('active');
     if (navigator.share) {
@@ -731,7 +716,6 @@ document.querySelector('.drawer .menu-item:nth-child(3)').addEventListener('clic
     }
 });
 
-// Profile edit
 document.querySelector('.drawer .menu-item:nth-child(2)').addEventListener('click', function() {
     drawerOverlay.classList.remove('active');
     if (isLoggedIn) {
@@ -810,7 +794,7 @@ function renderSavedChips() {
 }
 
 // ============================================================
-// MAP (initialised AFTER weather loads)
+// MAP
 // ============================================================
 function initMap(lat, lon) {
     if (isMapInitialized && map) {
@@ -870,22 +854,34 @@ function updateMap(lat, lon) {
 // ============================================================
 // WEATHER FUNCTIONS
 // ============================================================
+// ---- IMPORTANT: Replace YOUR_WORKER_URL with your Cloudflare Worker URL ----
+const WORKER_URL = 'https://shrill-mud-304e.umadivy500.workers.dev/weather';
+
 async function fetchWeather(lat, lon) {
-    const params = new URLSearchParams({
-        latitude: lat, longitude: lon,
-        current_weather: true,
-        hourly: 'precipitation',
-        daily: 'sunrise,sunset,moonrise,moonset,uv_index_max,shortwave_radiation_sum',
-        timezone: 'Asia/Kolkata',
-        forecast_days: 2,
-        past_days: 0,
-        current: 'temperature_2m,relative_humidity_2m,apparent_temperature,cloud_cover,wind_speed_10m,wind_direction_10m,pressure_msl,uv_index'
-    });
-    const url = `https://api.open-meteo.com/v1/forecast?${params}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
+    const workerUrl = `${WORKER_URL}?lat=${lat}&lon=${lon}`;
+    try {
+        const res = await fetch(workerUrl);
+        if (res.ok) return await res.json();
+        throw new Error('Worker failed, falling back');
+    } catch (e) {
+        // Fallback to Open-Meteo directly
+        const params = new URLSearchParams({
+            latitude: lat, longitude: lon,
+            current_weather: true,
+            hourly: 'precipitation',
+            daily: 'sunrise,sunset,moonrise,moonset,uv_index_max,shortwave_radiation_sum',
+            timezone: 'Asia/Kolkata',
+            forecast_days: 2,
+            past_days: 0,
+            current: 'temperature_2m,relative_humidity_2m,apparent_temperature,cloud_cover,wind_speed_10m,wind_direction_10m,pressure_msl,uv_index'
+        });
+        const directUrl = `https://api.open-meteo.com/v1/forecast?${params}`;
+        const directRes = await fetch(directUrl);
+        if (!directRes.ok) throw new Error(`Open-Meteo HTTP ${directRes.status}`);
+        return await directRes.json();
+    }
 }
+
 async function fetchAQI(lat, lon) {
     const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=pm10,pm2_5&timezone=Asia/Kolkata`;
     const res = await fetch(url);
@@ -1065,14 +1061,10 @@ function getSunCategory(uv, temp) {
 }
 
 // ============================================================
-// LOAD WEATHER DATA – FAST (cached location + short timeout)
+// LOAD WEATHER DATA
 // ============================================================
-let locationAttempted = false;
-
-async function loadWeatherData(lat, lon, cityName) {
-    // If we already have lat/lon from cache, use them immediately
+function loadWeatherData(lat, lon, cityName) {
     if (lat === undefined) {
-        // Try to get cached location
         const cached = localStorage.getItem('weather_cached_location');
         if (cached) {
             try {
@@ -1084,45 +1076,35 @@ async function loadWeatherData(lat, lon, cityName) {
                 }
             } catch(e) {}
         }
-        // If still undefined, use Delhi as fallback and then try GPS async
         if (lat === undefined) {
             lat = 28.6139;
             lon = 77.2090;
             cityName = 'दिल्ली (प्रारंभिक)';
         }
-        // Now try to get fresh GPS in background (non-blocking)
-        if (navigator.geolocation && !locationAttempted) {
-            locationAttempted = true;
+        if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
-                    // Save and update if better accuracy
                     const newLat = pos.coords.latitude;
                     const newLon = pos.coords.longitude;
-                    // Check if different enough (avoid micro-updates)
                     if (Math.abs(newLat - currentLat) > 0.01 || Math.abs(newLon - currentLon) > 0.01) {
-                        // Update city name via reverse geocode
                         reverseGeocode(newLat, newLon).then(name => {
                             const city = name || 'आपका स्थान';
-                            // Save to cache
                             localStorage.setItem('weather_cached_location', JSON.stringify({ lat: newLat, lon: newLon, city }));
-                            // Reload with new location
                             loadWeatherData(newLat, newLon, city);
                         }).catch(() => {
-                            // fallback
                             loadWeatherData(newLat, newLon, 'आपका स्थान');
                         });
                     }
                 },
-                () => { /* GPS failed, keep cached */ },
-                { timeout: 3000, enableHighAccuracy: false } // fast fallback
+                () => {},
+                { timeout: 3000, enableHighAccuracy: false }
             );
         }
     }
 
-    // Now load data for lat/lon
     if (cityName) currentCity = cityName;
     else {
-        try { currentCity = await reverseGeocode(lat, lon); } catch { currentCity = `${lat.toFixed(4)}, ${lon.toFixed(4)}`; }
+        reverseGeocode(lat, lon).then(name => { currentCity = name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`; });
     }
     currentLat = lat;
     currentLon = lon;
@@ -1130,24 +1112,24 @@ async function loadWeatherData(lat, lon, cityName) {
     updateMap(lat, lon);
     if (userData) welcomeSub.textContent = `📍 ${currentCity} · अब अपडेट हो रहा है`;
 
-    // Show loading but with immediate content if cached
     content.innerHTML = '<div class="loading">⏳ मौसम डेटा लोड हो रहा है...</div>';
     solarContent.innerHTML = '';
 
-    try {
-        const [weather, aqi] = await Promise.all([fetchWeather(lat, lon), fetchAQI(lat, lon)]);
-        renderUI(weather, aqi);
-        renderSolar(weather);
-        startCountdown();
-        renderSavedChips();
-        checkAllAlerts(lat, lon);
-    } catch (err) {
-        content.innerHTML = `<div class="error">❌ त्रुटि: ${err.message}<br><small>कृपया पुनः प्रयास करें</small></div>`;
-    }
+    Promise.all([fetchWeather(lat, lon), fetchAQI(lat, lon)])
+        .then(([weather, aqi]) => {
+            renderUI(weather, aqi);
+            renderSolar(weather);
+            startCountdown();
+            renderSavedChips();
+            checkAllAlerts(lat, lon);
+        })
+        .catch(err => {
+            content.innerHTML = `<div class="error">❌ त्रुटि: ${err.message}<br><small>कृपया पुनः प्रयास करें</small></div>`;
+        });
 }
 
 // ============================================================
-// RENDER UI (same as before)
+// RENDER UI
 // ============================================================
 function renderUI(weather, aqi) {
     const now = new Date();
@@ -1407,6 +1389,44 @@ function startCountdown() {
         }
     }, 1000);
 }
+// ===== BAROMETER / STORM DETECTION =====
+function checkPressureDrop(pressure) {
+    if (!pressure || pressure <= 0) return;
+    if (lastPressure !== null) {
+        const drop = lastPressure - pressure;
+        if (drop > 2.0) {
+            if (!pressureDropStart) pressureDropStart = Date.now();
+            if (Date.now() - pressureDropStart > 5 * 60 * 1000) {
+                document.getElementById('stormAlert').classList.add('active');
+                document.getElementById('stormAlert').textContent = 
+                    `⚡ तूफ़ान की संभावना! दबाव ${drop.toFixed(1)} hPa गिरा (${lastPressure.toFixed(1)} → ${pressure.toFixed(1)})`;
+                if (isLoggedIn) sendNotification('⚡ तूफ़ान चेतावनी!', `दबाव ${drop.toFixed(1)} hPa गिरा`);
+            }
+        } else if (drop < -0.5) {
+            document.getElementById('stormAlert').classList.remove('active');
+            pressureDropStart = null;
+        } else {
+            if (pressureDropStart && Date.now() - pressureDropStart > 30 * 60 * 1000) {
+                document.getElementById('stormAlert').classList.remove('active');
+                pressureDropStart = null;
+            }
+        }
+    }
+    lastPressure = pressure;
+}
+
+function initBarometer() {
+    if ('PressureSensor' in window) {
+        try {
+            const sensor = new PressureSensor({ frequency: 60 });
+            sensor.addEventListener('reading', () => checkPressureDrop(sensor.pressure));
+            sensor.start();
+            console.log('📱 बैरोमीटर सक्रिय');
+        } catch(e) { console.log('📱 बैरोमीटर अनुपलब्ध:', e.message); }
+    } else {
+        console.log('📱 बैरोमीटर नहीं मिला');
+    }
+}
 
 // ============================================================
 // TOGGLE DETAIL
@@ -1458,9 +1478,7 @@ document.getElementById('refreshBtn').addEventListener('click', function() {
     loadWeatherData(currentLat, currentLon, currentCity);
 });
 document.getElementById('homeBtn').addEventListener('click', function() {
-    // Clear cache and force GPS
     localStorage.removeItem('weather_cached_location');
-    locationAttempted = false;
     loadWeatherData();
 });
 document.getElementById('manualGoBtn').addEventListener('click', function() {
@@ -1474,53 +1492,18 @@ document.getElementById('manualGoBtn').addEventListener('click', function() {
 });
 
 // ============================================================
-// BAROMETER (optional)
-// ============================================================
-function checkPressureDrop(pressure) {
-    if (!pressure || pressure <= 0) return;
-    if (lastPressure !== null) {
-        const drop = lastPressure - pressure;
-        if (drop > 2.0) {
-            if (!pressureDropStart) pressureDropStart = Date.now();
-            if (Date.now() - pressureDropStart > 5*60*1000) {
-                document.getElementById('stormAlert').classList.add('active');
-                document.getElementById('stormAlert').textContent = `⚡ तूफ़ान की संभावना! दबाव ${drop.toFixed(1)} hPa गिरा (${lastPressure.toFixed(1)} → ${pressure.toFixed(1)})`;
-                if (isLoggedIn) sendNotification('⚡ तूफ़ान चेतावनी!', `दबाव ${drop.toFixed(1)} hPa गिरा`);
-            }
-        } else if (drop < -0.5) {
-            document.getElementById('stormAlert').classList.remove('active');
-            pressureDropStart = null;
-        } else {
-            if (pressureDropStart && Date.now()-pressureDropStart > 30*60*1000) {
-                document.getElementById('stormAlert').classList.remove('active');
-                pressureDropStart = null;
-            }
-        }
-    }
-    lastPressure = pressure;
-}
-function initBarometer() {
-    if ('PressureSensor' in window) {
-        try {
-            const sensor = new PressureSensor({ frequency: 60 });
-            sensor.addEventListener('reading', () => checkPressureDrop(sensor.pressure));
-            sensor.start();
-        } catch(e) { console.log('Barometer unavailable'); }
-    }
-}
-
-// ============================================================
 // INIT
 // ============================================================
 if (loadUserData()) {
     updateUIForUser();
-    loadWeatherData(); // uses cached location
+    loadWeatherData();
 } else {
     loginOverlay.classList.add('active');
     content.innerHTML = '<div class="loading">⏳ लॉगिन करें और मौसम देखें</div>';
 }
 renderSavedChips();
-initBarometer();
+initBarometer();      // <--- ADD THIS LINE
+initMap(28.6139, 77.2090);
 
 // Auto refresh every 15 minutes
 setInterval(() => {
@@ -1530,7 +1513,7 @@ setInterval(() => {
     }
 }, 15*60*1000);
 
-console.log('🌦️ मौसम टाइमर v5.1 – सुपरफास्ट');
+console.log('🌦️ मौसम टाइमर v6.0 – ग्लोबल रेडी');
 </script>
 </body>
 </html>
