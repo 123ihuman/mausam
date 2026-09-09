@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🌦️ मौसम टाइमर – फाइनल</title>
+    <title>🌦️ मौसम टाइमर – सुपरफास्ट</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <style>
-        /* ===== RESET & BASE ===== */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: 'Segoe UI', system-ui, sans-serif;
@@ -271,9 +270,7 @@
 
 <div class="container">
 
-    <!-- ============================== -->
-    <!--  LOGIN OVERLAY               -->
-    <!-- ============================== -->
+    <!-- ===== LOGIN OVERLAY ===== -->
     <div class="login-overlay" id="loginOverlay">
         <div class="login-box">
             <h2>🔐 लॉगिन / साइनअप</h2>
@@ -299,7 +296,7 @@
             <!-- Local Signup/Login -->
             <div id="localSection" style="display:none;">
                 <input type="text" id="localNameInput" placeholder="👤 अपना नाम" />
-                <input type="password" id="localPasswordInput" placeholder="🔑 पासवर्ड (कम से कम 4 अक्षर)" />
+                <input type="password" id="localPasswordInput" placeholder="🔑 पासवर्ड (≥4 अक्षर)" />
                 <button class="send-btn" id="localLoginBtn">✅ स्थानीय लॉगिन / साइनअप</button>
                 <div id="localStatus" style="text-align:center;font-size:0.8rem;opacity:0.8;margin:6px 0;"></div>
                 <div class="switch-link" id="switchToPhone">📱 OTP लॉगिन पर जाएं</div>
@@ -406,7 +403,7 @@
         </div>
     </div>
 
-    <div class="footer">🔁 हर 15 मिनट में अपडेट · Open-Meteo + USGS + GDACS · v5.0</div>
+    <div class="footer">🔁 हर 15 मिनट में अपडेट · Open-Meteo + USGS + GDACS · v5.1 (सुपरफास्ट)</div>
 </div>
 
 <!-- Leaflet JS -->
@@ -813,7 +810,7 @@ function renderSavedChips() {
 }
 
 // ============================================================
-// MAP
+// MAP (initialised AFTER weather loads)
 // ============================================================
 function initMap(lat, lon) {
     if (isMapInitialized && map) {
@@ -1068,31 +1065,75 @@ function getSunCategory(uv, temp) {
 }
 
 // ============================================================
-// LOAD WEATHER DATA
+// LOAD WEATHER DATA – FAST (cached location + short timeout)
 // ============================================================
+let locationAttempted = false;
+
 async function loadWeatherData(lat, lon, cityName) {
+    // If we already have lat/lon from cache, use them immediately
     if (lat === undefined) {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => loadWeatherData(pos.coords.latitude, pos.coords.longitude),
-                () => loadWeatherData(28.6139, 77.2090, 'दिल्ली (डिफ़ॉल्ट)')
-            );
-        } else {
-            loadWeatherData(28.6139, 77.2090, 'दिल्ली (डिफ़ॉल्ट)');
+        // Try to get cached location
+        const cached = localStorage.getItem('weather_cached_location');
+        if (cached) {
+            try {
+                const c = JSON.parse(cached);
+                if (c && c.lat && c.lon) {
+                    lat = c.lat;
+                    lon = c.lon;
+                    cityName = c.city || 'पिछला स्थान';
+                }
+            } catch(e) {}
         }
-        return;
+        // If still undefined, use Delhi as fallback and then try GPS async
+        if (lat === undefined) {
+            lat = 28.6139;
+            lon = 77.2090;
+            cityName = 'दिल्ली (प्रारंभिक)';
+        }
+        // Now try to get fresh GPS in background (non-blocking)
+        if (navigator.geolocation && !locationAttempted) {
+            locationAttempted = true;
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    // Save and update if better accuracy
+                    const newLat = pos.coords.latitude;
+                    const newLon = pos.coords.longitude;
+                    // Check if different enough (avoid micro-updates)
+                    if (Math.abs(newLat - currentLat) > 0.01 || Math.abs(newLon - currentLon) > 0.01) {
+                        // Update city name via reverse geocode
+                        reverseGeocode(newLat, newLon).then(name => {
+                            const city = name || 'आपका स्थान';
+                            // Save to cache
+                            localStorage.setItem('weather_cached_location', JSON.stringify({ lat: newLat, lon: newLon, city }));
+                            // Reload with new location
+                            loadWeatherData(newLat, newLon, city);
+                        }).catch(() => {
+                            // fallback
+                            loadWeatherData(newLat, newLon, 'आपका स्थान');
+                        });
+                    }
+                },
+                () => { /* GPS failed, keep cached */ },
+                { timeout: 3000, enableHighAccuracy: false } // fast fallback
+            );
+        }
     }
-    currentLat = lat;
-    currentLon = lon;
+
+    // Now load data for lat/lon
     if (cityName) currentCity = cityName;
     else {
         try { currentCity = await reverseGeocode(lat, lon); } catch { currentCity = `${lat.toFixed(4)}, ${lon.toFixed(4)}`; }
     }
+    currentLat = lat;
+    currentLon = lon;
     locationDisplay.innerHTML = `📍 ${currentCity} · <small>IST (UTC+5:30)</small>`;
     updateMap(lat, lon);
     if (userData) welcomeSub.textContent = `📍 ${currentCity} · अब अपडेट हो रहा है`;
+
+    // Show loading but with immediate content if cached
     content.innerHTML = '<div class="loading">⏳ मौसम डेटा लोड हो रहा है...</div>';
     solarContent.innerHTML = '';
+
     try {
         const [weather, aqi] = await Promise.all([fetchWeather(lat, lon), fetchAQI(lat, lon)]);
         renderUI(weather, aqi);
@@ -1106,7 +1147,7 @@ async function loadWeatherData(lat, lon, cityName) {
 }
 
 // ============================================================
-// RENDER UI
+// RENDER UI (same as before)
 // ============================================================
 function renderUI(weather, aqi) {
     const now = new Date();
@@ -1417,14 +1458,10 @@ document.getElementById('refreshBtn').addEventListener('click', function() {
     loadWeatherData(currentLat, currentLon, currentCity);
 });
 document.getElementById('homeBtn').addEventListener('click', function() {
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            (pos) => loadWeatherData(pos.coords.latitude, pos.coords.longitude),
-            () => loadWeatherData(28.6139, 77.2090, 'दिल्ली (डिफ़ॉल्ट)')
-        );
-    } else {
-        loadWeatherData(28.6139, 77.2090, 'दिल्ली (डिफ़ॉल्ट)');
-    }
+    // Clear cache and force GPS
+    localStorage.removeItem('weather_cached_location');
+    locationAttempted = false;
+    loadWeatherData();
 });
 document.getElementById('manualGoBtn').addEventListener('click', function() {
     const lat = parseFloat(document.getElementById('latInput').value);
@@ -1477,12 +1514,11 @@ function initBarometer() {
 // ============================================================
 if (loadUserData()) {
     updateUIForUser();
-    loadWeatherData();
+    loadWeatherData(); // uses cached location
 } else {
     loginOverlay.classList.add('active');
     content.innerHTML = '<div class="loading">⏳ लॉगिन करें और मौसम देखें</div>';
 }
-initMap(28.6139, 77.2090);
 renderSavedChips();
 initBarometer();
 
@@ -1494,7 +1530,7 @@ setInterval(() => {
     }
 }, 15*60*1000);
 
-console.log('🌦️ मौसम टाइमर v5.0 – पूर्ण रूप से कार्यशील');
+console.log('🌦️ मौसम टाइमर v5.1 – सुपरफास्ट');
 </script>
 </body>
 </html>
